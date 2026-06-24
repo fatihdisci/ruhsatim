@@ -1,0 +1,6 @@
+# Ruhsatım — Araç Dijital Dosyası
+.DS_Store
+*.xcuserdata
+xcuserdata/
+DerivedData/
+.swiftpm/
