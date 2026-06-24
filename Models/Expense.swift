@@ -4,18 +4,19 @@ import SwiftData
 // MARK: - Expense Model
 @Model
 final class Expense {
-    var id: UUID
-    var vehicleId: UUID
-    var categoryRaw: String
-    var amount: Double
-    var currencyCode: String
-    var date: Date
+    // CloudKit uyumu için tüm non-optional alanlara property seviyesinde default verildi.
+    var id: UUID = UUID()
+    var vehicleId: UUID = UUID()
+    var categoryRaw: String = ExpenseCategory.other.rawValue
+    var amount: Double = 0
+    var currencyCode: String = "TRY"
+    var date: Date = Date()
     var odometer: Int?
     var vendorName: String?
-    var note: String
-    var documentIds: [UUID]
+    var note: String = ""
+    var documentIds: [UUID] = []
     var linkedServiceRecordId: UUID?
-    var createdAt: Date
+    var createdAt: Date = Date()
 
     // MARK: Computed — Enum dönüşümleri
     var category: ExpenseCategory {

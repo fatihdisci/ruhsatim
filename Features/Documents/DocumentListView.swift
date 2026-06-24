@@ -16,6 +16,8 @@ struct DocumentListView: View {
     @State private var selectedVehicleFilter: UUID?
     @State private var previewURL: URL?
     @State private var showPreview = false
+    @State private var showMissingFileAlert = false
+    @State private var didBackfillCloudData = false
 
     private var filteredDocuments: [VehicleDocument] {
         if let vid = selectedVehicleFilter {
@@ -49,6 +51,12 @@ struct DocumentListView: View {
         .sheet(isPresented: $showAddDocument) { DocumentFormView() }
         .sheet(item: $editingDocument) { doc in DocumentFormView(existingDocument: doc) }
         .quickLookPreview($previewURL)
+        .alert("Dosya bu cihazda yok", isPresented: $showMissingFileAlert) {
+            Button("Tamam", role: .cancel) {}
+        } message: {
+            Text("Bu belgenin bilgileri senkronlandı ancak dosyası henüz bu cihaza inmedi. iCloud senkronizasyonu tamamlanınca tekrar dene; gelmezse belgeyi yeniden ekleyebilirsin.")
+        }
+        .onAppear(perform: backfillCloudDataIfNeeded)
     }
 
     private var listContent: some View {
@@ -179,10 +187,17 @@ struct DocumentListView: View {
 
     // MARK: - Preview
     private func previewDocument(_ doc: VehicleDocument) {
-        let url = DocumentStorageService.shared.fileURL(for: doc.localFileName)
-        guard DocumentStorageService.shared.fileExists(doc.localFileName) else { return }
-        previewURL = url
-        showPreview = true
+        // Dosya diskte yoksa CloudKit'ten senkronlanan veriden diske yaz (materialize).
+        if let url = DocumentStorageService.shared.materializeFileIfNeeded(
+            localFileName: doc.localFileName,
+            data: doc.fileData
+        ) {
+            previewURL = url
+            showPreview = true
+        } else {
+            // Ne disk kopyası ne de inmiş cloud verisi var → kullanıcıyı net bilgilendir.
+            showMissingFileAlert = true
+        }
     }
 
     // MARK: - Delete
@@ -190,6 +205,24 @@ struct DocumentListView: View {
         try? DocumentStorageService.shared.deleteFile(doc.localFileName)
         modelContext.delete(doc)
         try? modelContext.save()
+    }
+
+    // MARK: - CloudKit Backfill
+    // Bu cihazda diskte dosyası olan ama henüz `fileData` (senkron yansıması) olmayan
+    // eski belgeleri tespit edip ikili içeriği modele yazar. Böylece CloudKit açıldığında
+    // mevcut belgeler de senkronlanır. Idempotent: bir kez doldurulunca tekrar çalışmaz.
+    private func backfillCloudDataIfNeeded() {
+        guard !didBackfillCloudData else { return }
+        didBackfillCloudData = true
+
+        var didChange = false
+        for doc in allDocuments where doc.fileData == nil && !doc.localFileName.isEmpty {
+            if let data = DocumentStorageService.shared.readFileData(doc.localFileName) {
+                doc.fileData = data
+                didChange = true
+            }
+        }
+        if didChange { try? modelContext.save() }
     }
 }
 

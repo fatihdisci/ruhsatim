@@ -4,22 +4,23 @@ import SwiftData
 // MARK: - Service Record Model
 @Model
 final class ServiceRecord {
-    var id: UUID
-    var vehicleId: UUID
-    var serviceTypeRaw: String
-    var date: Date
+    // CloudKit uyumu için tüm non-optional alanlara property seviyesinde default verildi.
+    var id: UUID = UUID()
+    var vehicleId: UUID = UUID()
+    var serviceTypeRaw: String = ServiceType.custom.rawValue
+    var date: Date = Date()
     var odometer: Int?
     var vendorName: String?
     var laborCost: Double?
     var partsCost: Double?
     var totalCost: Double?
     var oilType: String?
-    var notes: String
-    var documentIds: [UUID]
+    var notes: String = ""
+    var documentIds: [UUID] = []
     var nextReminderTypeRaw: String?
     var nextReminderDueDate: Date?
     var nextReminderDueOdometer: Int?
-    var createdAt: Date
+    var createdAt: Date = Date()
 
     // MARK: Computed — Enum
     var serviceType: ServiceType {

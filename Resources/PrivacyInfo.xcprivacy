@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Uygulama kullanıcıyı izlemez (ATT / tracking yok). -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<!-- İzleme için kullanılan alan adı yok. -->
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<!-- Uygulama cihaz dışına/üçüncü taraflara veri toplamaz veya göndermez.
+	     Veriler yalnızca cihazda; CloudKit açılırsa kullanıcının KENDİ iCloud
+	     hesabının private database'inde saklanır (Apple tanımına göre "toplama" değildir). -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<!-- Required Reason API'leri: kullanılan API'ler için resmi gerekçe kodları. -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- FileManager attributesOfItem / resourceValues ile dosya damgalarına erişim.
+		     Yalnızca uygulamanın kendi sandbox'ındaki belge dosyaları için. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<!-- UserDefaults: yalnızca uygulamanın kendi ayar/durumu için (Pro durumu vb.). -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

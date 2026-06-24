@@ -4,16 +4,17 @@ import SwiftData
 // MARK: - Inspection Report Model
 @Model
 final class InspectionReport {
-    var id: UUID
-    var vehicleId: UUID
-    var providerName: String
+    // CloudKit uyumu için tüm non-optional alanlara property seviyesinde default verildi.
+    var id: UUID = UUID()
+    var vehicleId: UUID = UUID()
+    var providerName: String = ""
     var branchName: String?
-    var reportDate: Date
+    var reportDate: Date = Date()
     var odometer: Int?
-    var summary: String
+    var summary: String = ""
     var documentId: UUID?
-    var verificationStatusRaw: String
-    var createdAt: Date
+    var verificationStatusRaw: String = VerificationStatus.manual.rawValue
+    var createdAt: Date = Date()
 
     // MARK: Computed — Enum
     var verificationStatus: VerificationStatus {

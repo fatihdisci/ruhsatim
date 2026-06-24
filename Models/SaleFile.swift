@@ -4,18 +4,19 @@ import SwiftData
 // MARK: - Sale File Model
 @Model
 final class SaleFile {
-    var id: UUID
-    var vehicleId: UUID
-    var title: String
-    var includedSectionsRaw: [String]
-    var selectedDocumentIds: [UUID]
-    var selectedInspectionReportIds: [UUID]
-    var includePhotos: Bool
+    // CloudKit uyumu için tüm non-optional alanlara property seviyesinde default verildi.
+    var id: UUID = UUID()
+    var vehicleId: UUID = UUID()
+    var title: String = ""
+    var includedSectionsRaw: [String] = []
+    var selectedDocumentIds: [UUID] = []
+    var selectedInspectionReportIds: [UUID] = []
+    var includePhotos: Bool = false
     var generatedPDFFileName: String?
     var shareLinkURL: String?
     var shareLinkExpiry: Date?
-    var viewCount: Int
-    var createdAt: Date
+    var viewCount: Int = 0
+    var createdAt: Date = Date()
 
     // MARK: Computed — Enum dizisi
     var includedSections: [SaleFileSection] {

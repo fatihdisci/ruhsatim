@@ -361,6 +361,9 @@ struct DocumentFormView: View {
                 doc.localFileName = result.localFileName
                 doc.originalFileName = fileName
                 doc.fileSizeBytes = result.fileSize
+                // CloudKit senkron yansıması (externalStorage → CKAsset).
+                // Veri zaten bellekte; tekrar diskten okumaya gerek yok.
+                doc.fileData = data
 
                 // Geçiciyi temizle
                 try? FileManager.default.removeItem(at: tempURL)

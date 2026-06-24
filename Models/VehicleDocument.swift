@@ -4,19 +4,28 @@ import SwiftData
 // MARK: - Vehicle Document Model
 @Model
 final class VehicleDocument {
-    var id: UUID
-    var vehicleId: UUID
-    var typeRaw: String
-    var title: String
-    var localFileName: String
+    // CloudKit uyumu için tüm non-optional alanlara property seviyesinde default verildi.
+    var id: UUID = UUID()
+    var vehicleId: UUID = UUID()
+    var typeRaw: String = DocumentType.other.rawValue
+    var title: String = ""
+    var localFileName: String = ""
     var originalFileName: String?
     var issueDate: Date?
     var expiryDate: Date?
     var vendorName: String?
     var linkedRecordId: UUID?
-    var includeInSaleFile: Bool
+    var includeInSaleFile: Bool = false
     var fileSizeBytes: Int?
-    var createdAt: Date
+    var createdAt: Date = Date()
+
+    // MARK: - CloudKit Asset
+    // Belgenin ikili içeriği. `.externalStorage` ile SwiftData bunu satır içinde değil
+    // ayrı bir dosyada saklar; CloudKit açıldığında bu alan CKAsset olarak senkronlanır.
+    // Böylece cihaz değişiminde belge dosyaları da yeni cihazda otomatik gelir.
+    // Yerel `Documents/VehicleDocuments/` çalışma kopyası korunur (önizleme/performans);
+    // bu alan onun senkronlanan yansımasıdır.
+    @Attribute(.externalStorage) var fileData: Data?
 
     // MARK: Computed — Enum
     var type: DocumentType {

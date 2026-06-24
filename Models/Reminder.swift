@@ -4,18 +4,19 @@ import SwiftData
 // MARK: - Reminder Model
 @Model
 final class Reminder {
-    var id: UUID
-    var vehicleId: UUID
-    var typeRaw: String
-    var title: String
+    // CloudKit uyumu için tüm non-optional alanlara property seviyesinde default verildi.
+    var id: UUID = UUID()
+    var vehicleId: UUID = UUID()
+    var typeRaw: String = ReminderType.custom.rawValue
+    var title: String = ""
     var dueDate: Date?
     var dueOdometer: Int?
     var repeatRuleRaw: String?
-    var priorityRaw: String
-    var statusRaw: String
+    var priorityRaw: String = ReminderPriority.info.rawValue
+    var statusRaw: String = ReminderStatus.active.rawValue
     var completedAt: Date?
-    var notes: String
-    var createdAt: Date
+    var notes: String = ""
+    var createdAt: Date = Date()
 
     // MARK: Computed — Enum dönüşümleri
     var type: ReminderType {

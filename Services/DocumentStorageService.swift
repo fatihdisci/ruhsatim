@@ -58,6 +58,31 @@ final class DocumentStorageService {
         return fileManager.fileExists(atPath: url.path)
     }
 
+    /// Diskteki dosyanın ikili içeriğini okur (CloudKit'e backfill için).
+    func readFileData(_ localFileName: String) -> Data? {
+        guard !localFileName.isEmpty else { return nil }
+        let url = documentsDirectory.appendingPathComponent(localFileName)
+        guard fileManager.fileExists(atPath: url.path) else { return nil }
+        return try? Data(contentsOf: url)
+    }
+
+    /// Önizleme için yerel dosya URL'i döndürür.
+    /// Dosya diskte yoksa ancak CloudKit'ten gelen `data` mevcutsa, dosyayı diske
+    /// yazıp (çalışma kopyası olarak) URL döndürür. İkisi de yoksa nil döner.
+    func materializeFileIfNeeded(localFileName: String, data: Data?) -> URL? {
+        guard !localFileName.isEmpty else { return nil }
+        let url = documentsDirectory.appendingPathComponent(localFileName)
+        if fileManager.fileExists(atPath: url.path) { return url }
+        guard let data else { return nil }
+        do {
+            try fileManager.createDirectory(at: documentsDirectory, withIntermediateDirectories: true)
+            try data.write(to: url)
+            return url
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - Delete
     /// Dosyayı diskten siler.
     func deleteFile(_ localFileName: String) throws {

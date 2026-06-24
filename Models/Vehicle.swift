@@ -4,23 +4,27 @@ import SwiftData
 // MARK: - Vehicle Model
 @Model
 final class Vehicle {
-    var id: UUID
-    var nickname: String
-    var plate: String
-    var brand: String
-    var model: String
+    // NOT: CloudKit (NSPersistentCloudKitContainer) tüm zorunlu alanların ya optional
+    // ya da bir varsayılan değere sahip olmasını ister. Bu yüzden tüm non-optional
+    // alanlara property seviyesinde default verildi. init imzaları değişmedi; mevcut
+    // veri korunur (default eklemek lightweight/migrationsız bir değişikliktir).
+    var id: UUID = UUID()
+    var nickname: String = ""
+    var plate: String = ""
+    var brand: String = ""
+    var model: String = ""
     var year: Int?
     var bodyType: String?
-    var fuelTypeRaw: String
+    var fuelTypeRaw: String = FuelType.gasoline.rawValue
     var transmissionTypeRaw: String?
-    var currentOdometer: Int
+    var currentOdometer: Int = 0
     var purchaseDate: Date?
     var purchaseOdometer: Int?
     var purchasePrice: Double?
-    var usageTypeRaw: String
-    var notes: String
+    var usageTypeRaw: String = VehicleUsageType.personal.rawValue
+    var notes: String = ""
     var photoFileName: String?
-    var createdAt: Date
+    var createdAt: Date = Date()
     var archivedAt: Date?
 
     // MARK: Computed — Enum dönüşümleri

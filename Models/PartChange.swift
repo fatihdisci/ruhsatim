@@ -4,14 +4,15 @@ import SwiftData
 // MARK: - Part Change Model
 @Model
 final class PartChange {
-    var id: UUID
-    var serviceRecordId: UUID
-    var partTypeRaw: String
+    // CloudKit uyumu için tüm non-optional alanlara property seviyesinde default verildi.
+    var id: UUID = UUID()
+    var serviceRecordId: UUID = UUID()
+    var partTypeRaw: String = PartType.custom.rawValue
     var brand: String?
     var model: String?
     var warrantyUntil: Date?
-    var note: String
-    var createdAt: Date
+    var note: String = ""
+    var createdAt: Date = Date()
 
     var partType: PartType {
         get { PartType(rawValue: partTypeRaw) ?? .custom }

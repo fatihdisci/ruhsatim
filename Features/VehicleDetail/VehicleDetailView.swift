@@ -610,9 +610,10 @@ struct VehicleDetailView: View {
             modelContext.delete(part)
         }
 
-        // Belgeleri sil
+        // Belgeleri sil — DB kaydı + fiziksel dosya birlikte temizlenir.
         let allDocs = (try? modelContext.fetch(FetchDescriptor<VehicleDocument>())) ?? []
         for doc in allDocs where doc.vehicleId == vehicle.id {
+            try? DocumentStorageService.shared.deleteFile(doc.localFileName)
             modelContext.delete(doc)
         }
 
