@@ -1,3 +1,8 @@
+# Ruhsatım — Araç Dijital Dosyası
+
+# macOS
+.DS_Store
+
 # Xcode
 *.xcuserdata
 *.xcworkspace
@@ -17,9 +22,6 @@ build/
 # Swift Package Manager
 .build/
 .swiftpm/
-
-# macOS
-.DS_Store
 
 # Screenshots
 *.png

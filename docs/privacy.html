@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gizlilik Politikası — Ruhsatım</title>
+<style>
+  :root { --bg: #f9fafb; --card: #fff; --text: #1a1a2e; --muted: #6b7280; --accent: #0f766e; --border: #e5e7eb; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.7; padding:2rem 1rem; }
+  .container { max-width:640px; margin:0 auto; }
+  .card { background:var(--card); border-radius:12px; padding:2rem; margin-bottom:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid var(--border); }
+  h1 { font-size:1.75rem; font-weight:700; margin-bottom:1rem; color:var(--accent); }
+  h2 { font-size:1.2rem; font-weight:600; margin-top:1.75rem; margin-bottom:.75rem; }
+  p { margin-bottom:.875rem; }
+  ul { margin-bottom:1rem; padding-left:1.25rem; }
+  li { margin-bottom:.5rem; }
+  .muted { color:var(--muted); font-size:.875rem; }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .back { display:inline-block; margin-bottom:1.5rem; font-size:.9rem; }
+  .updated { font-size:.8rem; color:var(--muted); margin-bottom:1.5rem; }
+  hr { border:none; border-top:1px solid var(--border); margin:1.5rem 0; }
+  .footer { text-align:center; margin-top:2rem; }
+  .highlight { background:#fef3c7; padding:.125rem .375rem; border-radius:4px; font-weight:500; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a class="back" href="index.html">← Ruhsatım</a>
+  <div class="card">
+    <h1>Gizlilik Politikası</h1>
+    <p class="updated">Son güncelleme: 24 Haziran 2026</p>
+
+    <h2>Genel Bakış</h2>
+    <p>Ruhsatım, gizliliğinize saygı duyar. Bu uygulama <strong>hiçbir kullanıcı verisini toplamaz, üçüncü taraflarla paylaşmaz veya cihaz dışına çıkarmaz.</strong> Tüm veriler yalnızca cihazınızda saklanır.</p>
+
+    <h2>Hangi Veriler Saklanır?</h2>
+    <p>Aşağıdaki veriler <strong>yalnızca cihazınızda</strong>, uygulamanın kendi depolama alanında saklanır:</p>
+    <ul>
+      <li><strong>Araç bilgileri:</strong> Plaka, marka, model, yıl, kilometre, yakıt tipi, vites tipi, satın alma bilgileri.</li>
+      <li><strong>Masraf kayıtları:</strong> Yakıt, bakım, sigorta, MTV, tamir ve diğer harcama tutarları ile tarihleri.</li>
+      <li><strong>Hatırlatıcılar:</strong> Muayene, sigorta, kasko, MTV ve bakım tarihleri.</li>
+      <li><strong>Belgeler:</strong> Kullanıcının eklediği fotoğraf, PDF ve diğer dosyalar.</li>
+      <li><strong>Satış dosyası PDF'i:</strong> Kullanıcı kayıtlarından oluşturulan paylaşım dosyası.</li>
+    </ul>
+    <p>Bu verilerin hiçbiri uygulama tarafından bir sunucuya gönderilmez, analiz edilmez veya üçüncü kişilerle paylaşılmaz.</p>
+
+    <h2>Veriler Nerede Saklanır?</h2>
+    <p>Tüm veriler Apple'ın iOS işletim sistemi tarafından sağlanan <strong>cihaz içi depolama</strong> alanında saklanır (SwiftData ve uygulama sandbox).</p>
+
+    <h2>Üçüncü Taraf Hizmetleri</h2>
+    <p>Ruhsatım <strong>hiçbir</strong> üçüncü taraf analytics, crash reporting, reklam veya kullanıcı takip aracı kullanmaz. Uygulama şu hizmetleri <strong>kullanmaz:</strong></p>
+    <ul>
+      <li>Firebase / Google Analytics</li>
+      <li>Crashlytics / Sentry</li>
+      <li>Amplitude / Mixpanel</li>
+      <li>Reklam SDK'ları</li>
+    </ul>
+
+    <h2>Satın Alma İşlemleri</h2>
+    <p>Pro abonelik ve diğer satın alma işlemleri Apple'ın <strong>StoreKit</strong> çerçevesi üzerinden yönetilir. Ödeme bilgileri Apple tarafından işlenir; uygulama kredi kartı veya ödeme bilgilerine erişmez.</p>
+
+    <h2>Veri Paylaşımı</h2>
+    <p>Uygulama tarafından oluşturulan belgeler (satış dosyası PDF'i) <strong>yalnızca sizin başlattığınız paylaşım işlemiyle</strong> iletilir. Siz paylaşmadıkça hiçbir veri veya belge cihazınızdan çıkmaz.</p>
+
+    <h2>iCloud Eşzamanlama (Gelecek Özellik)</h2>
+    <p>Uygulamanın ilerideki bir sürümünde, isteğe bağlı iCloud eşzamanlama özelliği sunulabilir. Bu özellik etkinleştirildiğinde araç kayıtları ve belgeleriniz Apple iCloud hesabınızın <strong>özel veritabanında</strong> saklanır ve aynı Apple Kimliği ile giriş yaptığınız cihazlarınız arasında eşzamanlanır. iCloud eşzamanlama <strong>varsayılan olarak kapalıdır</strong> ve yalnızca siz etkinleştirirseniz çalışır.</p>
+
+    <h2>App Silindiğinde</h2>
+    <p>Uygulamayı cihazınızdan sildiğinizde, uygulamaya ait tüm veriler (araç kayıtları, masraflar, belgeler ve hatırlatıcılar) cihazınızdan <strong>tamamen silinir.</strong></p>
+
+    <h2>İletişim</h2>
+    <p>Gizlilik politikamızla ilgili sorularınız için:<br>
+    <a href="mailto:behavest@proton.me">behavest@proton.me</a></p>
+  </div>
+  <div class="footer muted">&copy; 2026 Ruhsatım</div>
+</div>
+</body>
+</html>
