@@ -1,47 +1,41 @@
 # Post-Merge Doğrulama Denetimi — Ruhsatım
 
 **Tarih:** 24 Haziran 2026
-**Commit:** `78d3506`
+**Commit:** `bc40c45`
 **Branch:** main
 **Xcode:** 26.5 (17F42)
-**Simulator:** iPhone 17e, iOS 26.5
+**Simulator:** iPhone 17 Pro, iOS 26.5
 
 ---
 
 ## 1. Git Durumu
 
+```
+bc40c45 docs: post-merge doğrulama denetimi — CloudKit/Privacy/belge temizliği
+a91387d SwiftData CloudKit sync hazırlığı + belge dosya sync + privacy manifest
+78d3506 docs: veri saklama mimarisi denetimi — Privacydatabasenotes.md
+```
+
 | Kontrol | Sonuç |
 |---|---|
 | Branch | `main` |
-| Status | Clean (nothing to commit) |
-| Remote | `git@github.com:fatihdisci/arac.git` |
-| HEAD | `78d3506` |
-
-```
-78d3506 docs: veri saklama mimarisi denetimi — Privacydatabasenotes.md
-9480287 docs: reports.md güncellendi — build/test doğrulaması eklendi, skor 16/16
-d70215f fix: Xcode 26 build + test onarımı
-2cb7cc5 QA denetim raporu
-6ab1ee8 Faz 13: Cila ve review hardening
-```
+| Status | Clean |
+| CloudKit merge | ✅ `a91387d` — 16 dosya, 207 satır |
 
 ---
 
 ## 2. CloudKit Flag Durumu
 
 ```swift
-// App/AppEnvironment.swift:13
 static let isCloudKitSyncEnabled = false
 ```
 
-| Bulgu | Detay |
+| Bulgu | Sonuç |
 |---|---|
-| Tanım | `AppEnvironment.swift:13` |
-| Kullanım | **Sıfır** — hiçbir Swift dosyası okumuyor |
-| `NSPersistentCloudKitContainer` | Kodda yok |
-| `ModelConfiguration` | Düz, CloudKit opsiyonsuz |
-| CloudKit branch merge | **Gerçekleşmemiş** |
-| Sonuç | `true`/`false` fark etmez, container her zaman yerel |
+| Flag okunuyor mu? | ✅ `VehicleDossierApp.swift:29` → `ModelConfiguration.cloudKitDatabase` |
+| Kapalıyken | `.none` → bugünkü davranış birebir |
+| Açıkken | `.private("iCloud.com.ruhsatim.app")` |
+| Capability dokümanı | ✅ `AppEnvironment.swift:14-18` |
 
 ---
 
@@ -49,134 +43,136 @@ static let isCloudKitSyncEnabled = false
 
 | Test | Sonuç |
 |---|---|
-| Clean build | ✅ `BUILD SUCCEEDED` |
+| Clean build | ✅ `BUILD SUCCEEDED` (0 hata, 0 uyarı) |
+| Unit test | ✅ 33/33 `TEST SUCCEEDED` |
 | Hata | 0 |
-| Uyarı | 0 |
-| Unit test (33) | ✅ 33/33 `TEST SUCCEEDED` |
 
 ---
 
-## 4. Build — CloudKit AÇIK (flag=true)
+## 4. CloudKit AÇIK Compile Testi
 
 | Test | Sonuç |
 |---|---|
-| Build | ✅ `BUILD SUCCEEDED` |
-| Capability: iCloud | ❌ Yok |
-| Capability: CloudKit container | ❌ Yok (`iCloud.com.ruhsatim.app`) |
-| Capability: Background Modes | ❌ Yok |
-| Runtime etki | Yok — flag dead code |
-| Sonuç | Flag'in compile/runtime etkisi sıfır |
+| Build (flag=true) | ✅ `BUILD SUCCEEDED` |
+| Capability: iCloud/CloudKit | ❌ Xcode'da eklenmemiş (runtime'da fatalError beklenir) |
+| Container ID | `iCloud.com.ruhsatim.app` (kodda tanımlı) |
+| Background Modes | ❌ Remote notifications eklenmemiş |
+
+> Flag açılıp Xcode capability eklenmeden çalıştırılırsa `ModelContainer` init `fatalError` verir.
 
 ---
 
-## 5. Belge Sync Mantığı (Kod İncelemesi)
+## 5. Belge Sync Mantığı (Kod Doğrulaması)
 
-| Kontrol | Durum | Açıklama |
+| Kontrol | Durum | Detay |
 |---|---|---|
-| `VehicleDocument.fileData` | ❌ Yok | CloudKit external storage için gerekli property tanımlı değil |
-| `@Attribute(.externalStorage)` | ❌ Yok | |
-| Belge ekleme → disk kopyası | ✅ | `DocumentStorageService.saveFile()` → `Documents/VehicleDocuments/{UUID}.ext` |
-| Belge ekleme → DB kaydı | ✅ | `modelContext.insert(doc)` |
-| Lazy backfill (eski belgeler) | ❌ | CloudKit kodu merge edilmemiş |
-| `fileData`'dan diske materialize | ❌ | Kod yok |
-| UI "henüz inmedi" uyarısı | ❌ | Kod yok |
-| Belge silme → disk | ✅ | `DocumentStorageService.deleteFile()` doğru sırada |
-| Belge silme → DB | ✅ | `modelContext.delete(doc)` |
-
-### Belge silme sırası (doğru):
-
-```swift
-// DocumentListView.swift:189-193
-try? DocumentStorageService.shared.deleteFile(doc.localFileName)  // 1. disk
-modelContext.delete(doc)                                            // 2. DB
-try? modelContext.save()
-```
+| `VehicleDocument.fileData` | ✅ | `@Attribute(.externalStorage) var fileData: Data?` (line 28) |
+| Belge ekleme → disk | ✅ | `DocumentStorageService.saveFile()` |
+| Belge ekleme → fileData | ✅ | `DocumentFormView.swift:366` — `doc.fileData = data` |
+| Dual-write | ✅ | Disk + fileData aynı anda yazılır |
+| Önizleme → disk yoksa materialize | ✅ | `DocumentListView.swift:191-196` — `materializeFileIfNeeded` |
+| Dosya yok uyarısı | ✅ | `showMissingFileAlert = true` (line 199) |
+| Lazy backfill (eski belgeler) | ✅ | `backfillCloudDataIfNeeded()` (line 214-226), idempotent |
+| `readFileData` | ✅ | `DocumentStorageService.swift:62-67` |
+| `materializeFileIfNeeded` | ✅ | `DocumentStorageService.swift:72-84` |
 
 ---
 
-## 6. Araç Silme → Fiziksel Belge Temizliği
+## 6. Belge Silme
 
-```
-VehicleDetailView.deleteVehicle() cascade:
-  ✅ Reminder           (vehicleId)
-  ✅ Expense            (vehicleId)
-  ✅ ServiceRecord      (vehicleId)
-  ✅ PartChange         (serviceRecordId)
-  ✅ VehicleDocument    (vehicleId) — DB'den silinir
-  ✅ InspectionReport   (vehicleId)
-  ✅ SaleFile           (vehicleId)
-  ❌ Fiziksel belge dosyaları — TEMİZLENMİYOR
-```
-
-> `Documents/VehicleDocuments/` altındaki dosyalar araç silinince yetim kalır.
-> Sadece `SettingsView.deleteAllData()` tüm klasörü siliyor.
+| Kontrol | Durum |
+|---|---|
+| Belge silme → disk | ✅ `deleteFile()` |
+| Belge silme → DB | ✅ `modelContext.delete()` |
+| Araç silme → fiziksel belge | ✅ `VehicleDetailView.swift:616` — `deleteFile(doc.localFileName)` |
+| Tüm veri silme → `VehicleDocuments/` | ✅ `SettingsView.deleteAllData()` |
 
 ---
 
 ## 7. PrivacyInfo.xcprivacy
 
-| Durum | ❌ Mevcut değil |
+| Kontrol | Durum |
 |---|---|
-| Zorunluluk | Apple, Mayıs 2024'ten beri tüm uygulamalar için şart |
-| Etki | App Store review'da **red sebebi** |
+| Dosya mevcut | ✅ `Resources/PrivacyInfo.xcprivacy` (40 satır) |
+| pbxproj'a bağlı | ✅ Resources build phase'de |
+| NSPrivacyTracking | ✅ `false` |
+| NSPrivacyCollectedDataTypes | ✅ Boş dizi (veri toplanmaz) |
+| FileTimestamp API | ✅ `C617.1` (kendi sandbox dosyaları) |
+| UserDefaults API | ✅ `CA92.1` (uygulama ayarları) |
 
 ---
 
-## 8. App Privacy Metni
 
-Mevcut (`AppStoreMetadata.md`):
-> "Verilerin cihazında saklanır. Belgelerin yalnızca sen paylaşırsan paylaşılır."
+## 8. CloudKit Model Uyumu
 
-**Değerlendirme:** ✅ CloudKit kapalı olduğu için bu ifade şu an doğru.
+Tüm `@Model` sınıflarında non-optional alanlara property seviyesinde default değer eklendi:
 
-CloudKit aktif edildiğinde güncellenmesi gereken metin:
-> "Veriler cihazınızda saklanır. iCloud eşzamanlama etkinse, araç kayıtları ve belgeleriniz Apple iCloud hesabınız üzerinden cihazlarınız arasında eşzamanlanır."
+| Model | Değişiklik |
+|---|---|
+| Vehicle | `id`, `nickname`, `plate`, `brand`, `model`, `fuelTypeRaw`, `usageTypeRaw`, `notes`, `createdAt` |
+| Reminder | `id`, `vehicleId`, `typeRaw`, `title`, `priorityRaw`, `statusRaw`, `notes`, `createdAt` |
+| Expense | `id`, `vehicleId`, `categoryRaw`, `amount`, `currencyCode`, `date`, `note`, `createdAt` |
+| ServiceRecord | `id`, `vehicleId`, `serviceTypeRaw`, `date`, `notes`, `createdAt` |
+| PartChange | `id`, `serviceRecordId`, `partTypeRaw`, `createdAt` |
+| VehicleDocument | `id`, `vehicleId`, `typeRaw`, `title`, `localFileName`, `createdAt` |
+| InspectionReport | `id`, `vehicleId`, `providerName`, `reportDate`, `summary`, `verificationStatusRaw`, `createdAt` |
+| SaleFile | `id`, `vehicleId`, `title`, `createdAt` |
+
+> Init imzaları değişmedi, migration gerekmez.
 
 ---
 
-## 9. Critical Issues
+## 9. App Privacy Metni
+
+Mevcut (`AppStoreMetadata.md`): "Verilerin cihazında saklanır"
+
+| CloudKit kapalıyken | ✅ Doğru |
+|---|---|
+| CloudKit açılınca | ⚠️ Güncellenmeli: "iCloud eşzamanlama etkinse veriler Apple iCloud üzerinden cihazlar arası eşzamanlanır" |
+
+---
+
+## 10. Critical Issues
 
 | # | Sorun | Öncelik |
 |---|---|---|
-| 🔴 C1 | `PrivacyInfo.xcprivacy` yok | App Store red |
-| 🔴 C2 | CloudKit sync branch merge edilmemiş, `isCloudKitSyncEnabled` dead flag | Yanıltıcı |
+| — | **Yok** | Tüm critical'lar çözüldü |
 
-## 10. High Issues
+## 11. High Issues
 
 | # | Sorun | Öncelik |
 |---|---|---|
-| 🟡 H1 | Araç silinince fiziksel belge dosyaları temizlenmiyor | Veri sızıntısı |
-| 🟡 H2 | `isCloudKitSyncEnabled` kod tarafından okunmuyor, runtime etkisi yok | Yanıltıcı flag |
+| — | **Yok** | Tüm high'lar çözüldü |
 
-## 11. TestFlight Değerlendirmesi
+## 12. Medium Issues
 
-| Mod | Durum | Koşul |
+| # | Sorun | Öncelik |
 |---|---|---|
-| CloudKit kapalı | ✅ Çıkabilir | PrivacyInfo.xcprivacy eklendikten sonra |
-| CloudKit açık | ❌ Çıkamaz | Kod merge edilmemiş |
+| 🟢 M1 | AppStoreMetadata.md privacy metni CloudKit açılınca güncellenmeli | Low |
+| 🟢 M2 | Xcode CloudKit capability + container + background modes eklenmeli | Low (flag kapalıyken gerekmez) |
 
 ---
 
-## 12. Özet
+## 13. TestFlight Değerlendirmesi
+
+| Mod | Durum |
+|---|---|
+| **CloudKit kapalı** | ✅ **Çıkabilir** |
+| **CloudKit açık** | ⚠️ Xcode capability'leri eklenmeli, sonra çıkabilir |
+
+---
+
+## 14. Özet
 
 | Kriter | Sonuç |
 |---|---|
 | Main güvenli mi? | ✅ Evet |
-| Build (CloudKit OFF) | ✅ Temiz |
+| Build (CloudKit OFF) | ✅ 0 hata, 0 uyarı |
 | Test (33/33) | ✅ Geçti |
-| Build (CloudKit ON) | ✅ (etkisiz) |
-| Belge ekleme/önizleme/silme | ✅ |
-| Araç silme → belge disk temizliği | ❌ |
-| PrivacyInfo.xcprivacy | ❌ |
-| CloudKit kodu | ❌ Merge edilmemiş |
-
----
-
-## 13. Aksiyon Maddeleri
-
-| # | Madde | Öncelik | Durum |
-|---|---|---|---|
-| 1 | `PrivacyInfo.xcprivacy` oluştur | 🔴 Critical | Bekliyor |
-| 2 | `VehicleDetailView.deleteVehicle()` → fiziksel belge temizliği ekle | 🟡 High | Bekliyor |
-| 3 | CloudKit sync branch'ini merge et | 🟡 High | Bekliyor |
-| 4 | `isCloudKitSyncEnabled` flag'ini `VehicleDossierApp` container init'ine bağla | 🟡 High | Bekliyor |
+| Build (CloudKit ON) | ✅ (runtime'da capability eksik) |
+| Belge sync mantığı | ✅ Dual-write + materialize + backfill |
+| Belge silme (disk+DB) | ✅ |
+| Araç silme → belge temizliği | ✅ Düzeltildi |
+| PrivacyInfo.xcprivacy | ✅ Eklendi |
+| CloudKit model uyumu | ✅ 8 model, default değerler |
+| `isCloudKitSyncEnabled` runtime bağlantısı | ✅ |
