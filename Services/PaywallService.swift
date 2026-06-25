@@ -179,9 +179,7 @@ final class PaywallService: ObservableObject {
     }
 
     func canCreateSaleFile() -> Bool {
-        if isPro { return true }
-        // Free: sınırlı sayıda satış dosyası (2)
-        return true // MVP'de soft limit, paywall gösterilir
+        isPro
     }
 
     func canAccessAdvancedReports() -> Bool {

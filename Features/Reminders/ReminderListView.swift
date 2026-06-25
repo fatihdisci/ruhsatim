@@ -46,6 +46,7 @@ struct ReminderListView: View {
                 reminderListContent
             }
         }
+        .sheet(isPresented: $showAddReminder) { ReminderFormView() }
     }
 
     // MARK: - Empty State

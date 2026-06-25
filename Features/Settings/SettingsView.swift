@@ -11,6 +11,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var paywallService: PaywallService
 
+    @State private var showPaywall = false
     @State private var showDeleteAllConfirmation = false
     @State private var isExporting = false
     @State private var exportMessage: String?
@@ -56,6 +57,9 @@ struct SettingsView: View {
                         .foregroundColor(AppColors.accentPrimary)
                 }
             }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView(feature: .advancedReports)
+            }
             .confirmationDialog("Tüm Verileri Sil", isPresented: $showDeleteAllConfirmation) {
                 Button("Tüm Verileri Sil", role: .destructive) { deleteAllData() }
                 Button("İptal", role: .cancel) {}
@@ -93,8 +97,7 @@ struct SettingsView: View {
 
             if !paywallService.isPro {
                 Button {
-                    dismiss()
-                    // PaywallView gösterilecek — parent'tan handling
+                    showPaywall = true
                 } label: {
                     Label("Pro'ya Geç", systemImage: "arrow.up.forward")
                         .foregroundColor(AppColors.accentPrimary)
@@ -285,8 +288,10 @@ struct SettingsView: View {
         }
         .listRowBackground(Color.appSurface)
     }
+    #endif
 
     private func seedDemoData() {
+        #if DEBUG
         let count = DemoDataSeeder.seed(context: modelContext)
         if count > 0 {
             demoSeedMessage = "✅ \(count) demo araç eklendi. Veriler yüklendi."
@@ -297,16 +302,18 @@ struct SettingsView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             demoSeedMessage = nil
         }
+        #endif
     }
 
     private func deleteAllDemoData() {
+        #if DEBUG
         DemoDataSeeder.deleteAll(context: modelContext)
         demoSeedMessage = "🗑️ Tüm veriler silindi."
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             demoSeedMessage = nil
         }
+        #endif
     }
-    #endif
 
     // MARK: - Actions
     private func openSystemNotificationSettings() {
