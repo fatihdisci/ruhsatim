@@ -467,6 +467,7 @@ struct VehicleFormView: View {
                 priority: .warning
             )
             modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
         }
 
         if addInsuranceReminder {
@@ -478,6 +479,7 @@ struct VehicleFormView: View {
                 priority: .warning
             )
             modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
         }
 
         if addCascoReminder {
@@ -489,6 +491,7 @@ struct VehicleFormView: View {
                 priority: .warning
             )
             modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
         }
 
         if addLastServiceReminder {
@@ -501,6 +504,7 @@ struct VehicleFormView: View {
                 priority: .info
             )
             modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
         }
     }
 }

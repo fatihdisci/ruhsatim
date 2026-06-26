@@ -595,6 +595,11 @@ struct VehicleDetailView: View {
     }
 
     private func deleteVehicle() {
+        // Önce tüm hatırlatıcı bildirimlerini iptal et
+        for reminder in reminders {
+            NotificationService.shared.cancelReminder(reminder)
+        }
+
         // Tüm ilişkili verileri sil
         for reminder in reminders { modelContext.delete(reminder) }
         for expense in expenses { modelContext.delete(expense) }

@@ -4,18 +4,19 @@ import SwiftData
 // MARK: - Reminder Model
 @Model
 final class Reminder {
-    var id: UUID
-    var vehicleId: UUID
-    var typeRaw: String
-    var title: String
+    // CloudKit uyumu için tüm non-optional alanlara property seviyesinde default verildi.
+    var id: UUID = UUID()
+    var vehicleId: UUID = UUID()
+    var typeRaw: String = ReminderType.custom.rawValue
+    var title: String = ""
     var dueDate: Date?
     var dueOdometer: Int?
     var repeatRuleRaw: String?
-    var priorityRaw: String
-    var statusRaw: String
+    var priorityRaw: String = ReminderPriority.info.rawValue
+    var statusRaw: String = ReminderStatus.active.rawValue
     var completedAt: Date?
-    var notes: String
-    var createdAt: Date
+    var notes: String = ""
+    var createdAt: Date = Date()
 
     // MARK: Computed — Enum dönüşümleri
     var type: ReminderType {
@@ -33,12 +34,35 @@ final class Reminder {
         set { statusRaw = newValue.rawValue }
     }
 
+    // MARK: Computed — Repeat rule
+    var repeatRule: ReminderRepeatRule {
+        ReminderRepeatEngine.shared.rule(from: repeatRuleRaw)
+    }
+
     // MARK: Computed properties
     var isOverdue: Bool {
         guard statusRaw != ReminderStatus.completed.rawValue,
               statusRaw != ReminderStatus.archived.rawValue,
               let dueDate else { return false }
         return dueDate < Date()
+    }
+
+    // MARK: Km-based durum
+    /// Km eşiği olan aktif hatırlatıcının, aracın mevcut km'sine göre gecikmiş olup olmadığını döner.
+    func isKmOverdue(vehicleOdometer: Int) -> Bool {
+        guard let dueOdometer,
+              statusRaw != ReminderStatus.completed.rawValue,
+              statusRaw != ReminderStatus.archived.rawValue else { return false }
+        return vehicleOdometer >= dueOdometer
+    }
+
+    /// Km eşiğine yaklaşan (belirtilen km aralığında) aktif hatırlatıcı.
+    func isKmUpcoming(vehicleOdometer: Int, withinKm: Int = 2000) -> Bool {
+        guard let dueOdometer,
+              statusRaw != ReminderStatus.completed.rawValue,
+              statusRaw != ReminderStatus.archived.rawValue else { return false }
+        let remaining = dueOdometer - vehicleOdometer
+        return remaining > 0 && remaining <= withinKm
     }
 
     var isToday: Bool {

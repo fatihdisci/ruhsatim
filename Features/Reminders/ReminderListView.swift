@@ -23,19 +23,31 @@ struct ReminderListView: View {
     }
 
     private var overdueReminders: [Reminder] {
-        activeReminders.filter { $0.isOverdue }
+        activeReminders.filter { r in
+            if r.isOverdue { return true }
+            // Km eşiği geçilmiş olanlar da gecikenler grubuna
+            if let vehicle = vehicleFor(r), r.isKmOverdue(vehicleOdometer: vehicle.currentOdometer) {
+                return true
+            }
+            return false
+        }
     }
 
     private var todayReminders: [Reminder] {
-        activeReminders.filter { $0.isToday && !$0.isOverdue }
+        activeReminders.filter { $0.isToday && !$0.isOverdue && !isKmOverdue($0) }
     }
 
     private var upcomingReminders: [Reminder] {
-        activeReminders.filter { $0.isUpcoming && !$0.isToday && !$0.isOverdue }
+        activeReminders.filter { $0.isUpcoming && !$0.isToday && !$0.isOverdue && !isKmOverdue($0) }
     }
 
     private var laterReminders: [Reminder] {
-        activeReminders.filter { !$0.isOverdue && !$0.isToday && !$0.isUpcoming }
+        activeReminders.filter { !$0.isOverdue && !$0.isToday && !$0.isUpcoming && !isKmOverdue($0) }
+    }
+
+    private func isKmOverdue(_ reminder: Reminder) -> Bool {
+        guard let vehicle = vehicleFor(reminder) else { return false }
+        return reminder.isKmOverdue(vehicleOdometer: vehicle.currentOdometer)
     }
 
     var body: some View {
@@ -145,12 +157,41 @@ struct ReminderListView: View {
 
     // MARK: - Actions
     private func completeReminder(_ reminder: Reminder) {
+        // Tekrar kuralını tamamlamadan önce al (completedAt set edildikten sonra da erişilebilir).
+        let rule = reminder.repeatRule
+        let oldDueDate = reminder.dueDate
+        let oldDueOdometer = reminder.dueOdometer
+
         reminder.statusRaw = ReminderStatus.completed.rawValue
         reminder.completedAt = Date()
         try? modelContext.save()
 
         // Bildirimleri iptal et
         NotificationService.shared.cancelReminder(reminder)
+
+        // Tekrarlayan hatırlatıcı ise bir sonraki oluşumu yarat
+        if rule != .none, let baseDate = oldDueDate ?? reminder.completedAt {
+            if let nextDate = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: rule) {
+                let next = Reminder(
+                    vehicleId: reminder.vehicleId,
+                    type: reminder.type,
+                    title: reminder.title,
+                    dueDate: nextDate,
+                    dueOdometer: oldDueOdometer,
+                    repeatRule: reminder.repeatRuleRaw,
+                    priority: reminder.priority,
+                    status: .active,
+                    notes: reminder.notes
+                )
+                modelContext.insert(next)
+                try? modelContext.save()
+
+                // Yeni oluşum için bildirim planla
+                Task {
+                    await NotificationService.shared.scheduleReminder(next)
+                }
+            }
+        }
     }
 
     private func deleteReminder(_ reminder: Reminder) {
@@ -232,7 +273,13 @@ struct ReminderRow: View {
         if reminder.isOverdue {
             return AppColors.critical
         }
+        if let vehicle, reminder.isKmOverdue(vehicleOdometer: vehicle.currentOdometer) {
+            return AppColors.critical
+        }
         if reminder.isToday {
+            return AppColors.warning
+        }
+        if let vehicle, reminder.isKmUpcoming(vehicleOdometer: vehicle.currentOdometer) {
             return AppColors.warning
         }
         return AppColors.accentPrimary
@@ -245,8 +292,16 @@ struct ReminderRow: View {
         if reminder.isOverdue {
             return "\(reminder.daysOverdue) gün gecikti"
         }
+        if let vehicle, reminder.isKmOverdue(vehicleOdometer: vehicle.currentOdometer) {
+            let exceeded = vehicle.currentOdometer - (reminder.dueOdometer ?? 0)
+            return "\(exceeded.formatted()) km gecikti"
+        }
         if reminder.isToday {
             return "Bugün"
+        }
+        if let vehicle, reminder.isKmUpcoming(vehicleOdometer: vehicle.currentOdometer) {
+            let remaining = (reminder.dueOdometer ?? 0) - vehicle.currentOdometer
+            return "\(remaining.formatted()) km kaldı"
         }
         return "\(reminder.daysRemaining) gün kaldı"
     }

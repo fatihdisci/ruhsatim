@@ -21,7 +21,7 @@ struct ReminderFormView: View {
     @State private var hasDueOdometer = false
 
     // Tekrar
-    @State private var repeatRule: RepeatRule = .none
+    @State private var repeatRule: ReminderRepeatRule = .none
 
     // Öncelik
     @State private var priority: ReminderPriority = .warning
@@ -34,16 +34,8 @@ struct ReminderFormView: View {
 
     @State private var validationErrors: [String] = []
 
-    enum RepeatRule: String, CaseIterable {
-        case none = "Tekrar Yok"
-        case monthly = "Her Ay"
-        case quarterly = "3 Ayda Bir"
-        case biannual = "6 Ayda Bir"
-        case yearly = "Her Yıl"
-        case custom = "Özel"
-
-        var displayName: String { rawValue }
-    }
+    // ReminderRepeatRule enum'u shared olarak ReminderRepeatEngine.swift içinde tanımlı.
+    // .custom opsiyonu UI'da gizlenir (henüz desteklenmiyor).
 
     private var displayTitle: String {
         if selectedTemplate == .custom {
@@ -167,7 +159,7 @@ struct ReminderFormView: View {
             }
 
             Picker(selection: $repeatRule) {
-                ForEach(RepeatRule.allCases, id: \.self) { rule in
+                ForEach(ReminderRepeatRule.allCases.filter { $0 != .custom }, id: \.self) { rule in
                     Text(rule.displayName).tag(rule)
                 }
             } label: {

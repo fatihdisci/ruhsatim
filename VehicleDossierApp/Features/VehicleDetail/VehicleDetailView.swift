@@ -230,11 +230,7 @@ struct VehicleDetailView: View {
                             .font(AppTypography.bodyMedium)
                             .foregroundColor(AppColors.textPrimary)
                         Spacer()
-                        if latest.verificationStatus == .verified {
-                            Label("Doğrulandı", systemImage: "checkmark.seal.fill")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(AppColors.success)
-                        }
+                        // TODO: Partner doğrulama entegrasyonu geldiğinde badge eklenecek
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -599,6 +595,11 @@ struct VehicleDetailView: View {
     }
 
     private func deleteVehicle() {
+        // Önce tüm hatırlatıcı bildirimlerini iptal et
+        for reminder in reminders {
+            NotificationService.shared.cancelReminder(reminder)
+        }
+
         // Tüm ilişkili verileri sil
         for reminder in reminders { modelContext.delete(reminder) }
         for expense in expenses { modelContext.delete(expense) }
@@ -610,9 +611,10 @@ struct VehicleDetailView: View {
             modelContext.delete(part)
         }
 
-        // Belgeleri sil
+        // Belgeleri sil — DB kaydı + fiziksel dosya birlikte temizlenir.
         let allDocs = (try? modelContext.fetch(FetchDescriptor<VehicleDocument>())) ?? []
         for doc in allDocs where doc.vehicleId == vehicle.id {
+            try? DocumentStorageService.shared.deleteFile(doc.localFileName)
             modelContext.delete(doc)
         }
 

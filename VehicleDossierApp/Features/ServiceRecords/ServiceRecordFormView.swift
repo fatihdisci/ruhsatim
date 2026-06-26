@@ -96,6 +96,10 @@ struct ServiceRecordFormView: View {
                 if !isEditing, vehicles.count == 1 {
                     selectedVehicleId = vehicles.first?.id
                 }
+                // Düzenleme modunda mevcut parçaları yükle
+                if isEditing, let record = existingRecord, changedParts.isEmpty {
+                    loadExistingParts(for: record)
+                }
             }
         }
     }
@@ -292,6 +296,21 @@ struct ServiceRecordFormView: View {
         return Double(t).flatMap { $0 >= 0 ? $0 : nil }
     }
 
+    private func loadExistingParts(for record: ServiceRecord) {
+        let recordId = record.id
+        if let allParts = try? modelContext.fetch(FetchDescriptor<PartChange>()) {
+            changedParts = allParts.filter { $0.serviceRecordId == recordId }.map { part in
+                PartDraft(
+                    partType: part.partType,
+                    brand: part.brand ?? "",
+                    model: part.model ?? "",
+                    warrantyDate: part.warrantyUntil,
+                    hasWarranty: part.warrantyUntil != nil
+                )
+            }
+        }
+    }
+
     // MARK: - Save
     private func saveRecord() {
         guard let vehicleId = selectedVehicleId else {
@@ -316,6 +335,16 @@ struct ServiceRecordFormView: View {
         record.totalCost = totalCost
         record.oilType = oilType.trimmingCharacters(in: .whitespaces).isEmpty ? nil : oilType.trimmingCharacters(in: .whitespaces)
         record.notes = notes.trimmingCharacters(in: .whitespaces)
+
+        // Düzenleme modunda eski parçaları sil (tekrar eklemeden önce)
+        if isEditing {
+            let recordId = record.id
+            if let allParts = try? modelContext.fetch(FetchDescriptor<PartChange>()) {
+                for oldPart in allParts where oldPart.serviceRecordId == recordId {
+                    modelContext.delete(oldPart)
+                }
+            }
+        }
 
         // Parçaları kaydet
         for draft in changedParts {

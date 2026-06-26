@@ -23,6 +23,10 @@ struct VehicleFormView: View {
     // MARK: Optional fields
     @State private var nickname = ""
     @State private var showPhotoPicker = false
+    @State private var showBrandPicker = false
+    @State private var showModelPicker = false
+    @State private var isCustomBrand = false
+    @State private var isCustomModel = false
 
     // MARK: First reminders (optional)
     @State private var addInspectionReminder = false
@@ -48,6 +52,10 @@ struct VehicleFormView: View {
     private var lastServiceOdometer: Int? {
         let text = lastServiceOdometerText.trimmingCharacters(in: .whitespaces)
         return text.isEmpty ? nil : Int(text)
+    }
+
+    private var selectedCatalogBrand: CarBrand? {
+        isCustomBrand ? nil : CarCatalogService.shared.brand(named: brand)
     }
 
     var body: some View {
@@ -76,6 +84,18 @@ struct VehicleFormView: View {
                         .foregroundColor(AppColors.accentPrimary)
                 }
             }
+            .sheet(isPresented: $showBrandPicker) {
+                CarBrandPickerSheet(service: CarCatalogService.shared, selectedBrand: brand) { selectedBrand in
+                    handleBrandSelection(selectedBrand)
+                }
+            }
+            .sheet(isPresented: $showModelPicker) {
+                if let selectedCatalogBrand {
+                    CarModelPickerSheet(service: CarCatalogService.shared, brand: selectedCatalogBrand, selectedModel: model) { selectedModel in
+                        handleModelSelection(selectedModel)
+                    }
+                }
+            }
         }
     }
 
@@ -90,8 +110,38 @@ struct VehicleFormView: View {
 
                 formField(icon: "number", placeholder: "Plaka", text: $plate, keyboardType: .default)
                     .textInputAutocapitalization(.characters)
-                formField(icon: "car", placeholder: "Marka", text: $brand)
-                formField(icon: "tag", placeholder: "Model", text: $model)
+
+                VehicleCatalogSelectionField(
+                    title: "Marka",
+                    value: brand,
+                    placeholder: "Marka seç",
+                    systemImage: "car",
+                    action: { showBrandPicker = true }
+                )
+
+                if isCustomBrand {
+                    formField(icon: "pencil", placeholder: "Marka adı", text: $brand)
+                }
+
+                VehicleCatalogSelectionField(
+                    title: "Model",
+                    value: model,
+                    placeholder: brand.isEmpty ? "Önce marka seç" : "Model seç",
+                    systemImage: "tag",
+                    isDisabled: brand.isEmpty && !isCustomBrand,
+                    action: {
+                        if isCustomBrand {
+                            isCustomModel = true
+                        } else if selectedCatalogBrand != nil {
+                            showModelPicker = true
+                        }
+                    }
+                )
+
+                if isCustomModel || isCustomBrand {
+                    formField(icon: "pencil", placeholder: "Model adı", text: $model)
+                }
+
                 formField(icon: "calendar", placeholder: "Yıl", text: $yearText, keyboardType: .numberPad)
                 formField(icon: "gauge.with.needle", placeholder: "Güncel Km", text: $odometerText, keyboardType: .numberPad)
             }
@@ -300,6 +350,33 @@ struct VehicleFormView: View {
         .padding(.vertical, AppSpacing.xxs)
     }
 
+    // MARK: - Catalog Selection
+    private func handleBrandSelection(_ selectedBrand: CarBrand?) {
+        if let selectedBrand {
+            var selection = VehicleCatalogSelection(brand: brand, model: model)
+            selection.selectBrand(selectedBrand.displayName)
+            brand = selection.brand
+            model = selection.model
+            isCustomBrand = false
+            isCustomModel = false
+        } else {
+            brand = ""
+            model = ""
+            isCustomBrand = true
+            isCustomModel = true
+        }
+    }
+
+    private func handleModelSelection(_ selectedModel: CarModel?) {
+        if let selectedModel {
+            model = selectedModel.displayName
+            isCustomModel = false
+        } else {
+            model = ""
+            isCustomModel = true
+        }
+    }
+
     // MARK: - Save Action
     private func saveVehicle() {
         let errors = validate()
@@ -390,6 +467,7 @@ struct VehicleFormView: View {
                 priority: .warning
             )
             modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
         }
 
         if addInsuranceReminder {
@@ -401,6 +479,7 @@ struct VehicleFormView: View {
                 priority: .warning
             )
             modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
         }
 
         if addCascoReminder {
@@ -412,6 +491,7 @@ struct VehicleFormView: View {
                 priority: .warning
             )
             modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
         }
 
         if addLastServiceReminder {
@@ -424,6 +504,7 @@ struct VehicleFormView: View {
                 priority: .info
             )
             modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
         }
     }
 }

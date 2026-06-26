@@ -94,12 +94,22 @@ struct VehicleDossierApp: App {
 
         // Segmented control
         let segmentedAppearance = UISegmentedControl.appearance()
+        // Normal state: light mode slate, dark mode light-slate
         segmentedAppearance.setTitleTextAttributes(
-            [.foregroundColor: UIColor(red: 0.392, green: 0.455, blue: 0.545, alpha: 1.0)],  // #64748B
+            [.foregroundColor: UIColor { trait in
+                trait.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.580, green: 0.639, blue: 0.722, alpha: 1.0)   // #94A3B8
+                    : UIColor(red: 0.392, green: 0.455, blue: 0.545, alpha: 1.0)   // #64748B
+            }],
             for: .normal
         )
+        // Selected state: light mode dark-accent (visible on white capsule), dark mode white
         segmentedAppearance.setTitleTextAttributes(
-            [.foregroundColor: UIColor.white],
+            [.foregroundColor: UIColor { trait in
+                trait.userInterfaceStyle == .dark
+                    ? UIColor.white
+                    : UIColor(red: 0.059, green: 0.463, blue: 0.431, alpha: 1.0)   // #0F766E
+            }],
             for: .selected
         )
     }

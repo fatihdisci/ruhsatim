@@ -37,6 +37,7 @@ struct InspectionReportFormView: View {
             _selectedVehicleId = State(initialValue: r.vehicleId)
             _selectedDocumentId = State(initialValue: r.documentId)
             _verificationStatus = State(initialValue: r.verificationStatus)
+            _includeInSaleFile = State(initialValue: r.includeInSaleFile)
         }
     }
 
@@ -233,6 +234,7 @@ struct InspectionReportFormView: View {
         report.summary = summary.trimmingCharacters(in: .whitespaces)
         report.documentId = selectedDocumentId
         report.verificationStatusRaw = verificationStatus.rawValue
+        report.includeInSaleFile = includeInSaleFile
 
         try? modelContext.save()
         dismiss()

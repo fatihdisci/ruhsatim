@@ -11,9 +11,11 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var paywallService: PaywallService
 
+    @State private var showPaywall = false
     @State private var showDeleteAllConfirmation = false
     @State private var isExporting = false
     @State private var exportMessage: String?
+    @State private var demoSeedMessage: String?
 
     // Privacy & Terms URL'leri — GitHub Pages canlı URL'leri
     private let privacyURL = URL(string: "https://fatihdisci.github.io/ruhsatim/privacy.html")!
@@ -37,6 +39,11 @@ struct SettingsView: View {
 
                 // Uygulama Hakkında
                 aboutSection
+
+                // Geliştirici (sadece DEBUG)
+                #if DEBUG
+                developerSection
+                #endif
             }
             .scrollContentBackground(.hidden)
             .background(Color.appBackground)
@@ -47,6 +54,9 @@ struct SettingsView: View {
                     Button("Tamam") { dismiss() }
                         .foregroundColor(AppColors.accentPrimary)
                 }
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView(feature: .advancedReports)
             }
             .confirmationDialog("Tüm Verileri Sil", isPresented: $showDeleteAllConfirmation) {
                 Button("Tüm Verileri Sil", role: .destructive) { deleteAllData() }
@@ -73,8 +83,7 @@ struct SettingsView: View {
 
             if !paywallService.isPro {
                 Button {
-                    dismiss()
-                    // PaywallView gösterilecek — parent'tan handling
+                    showPaywall = true
                 } label: {
                     Label("Pro'ya Geç", systemImage: "arrow.up.forward")
                         .foregroundColor(AppColors.accentPrimary)
@@ -125,7 +134,7 @@ struct SettingsView: View {
                 exportData()
             } label: {
                 HStack {
-                    Label("Verileri Dışa Aktar", systemImage: "square.and.arrow.up")
+                    Label("Verileri Dışa Aktar (JSON)", systemImage: "square.and.arrow.up")
                         .foregroundColor(AppColors.textPrimary)
                     Spacer()
                     if isExporting {
@@ -236,6 +245,78 @@ struct SettingsView: View {
         .listRowBackground(Color.appSurface)
     }
 
+    // MARK: - Developer Section (DEBUG only)
+    #if DEBUG
+    private var developerSection: some View {
+        Section {
+            Button {
+                seedDemoData()
+            } label: {
+                Label("Demo Verileri Yükle", systemImage: "laptopcomputer")
+                    .foregroundColor(AppColors.accentPrimary)
+            }
+
+            Button(role: .destructive) {
+                deleteAllDemoData()
+            } label: {
+                Label("Tüm Verileri Temizle", systemImage: "trash")
+            }
+
+            Divider()
+
+            Button {
+                paywallService.enableProForDev()
+            } label: {
+                Label("Dev: Pro’yu Aç", systemImage: "crown.fill")
+                    .foregroundColor(AppColors.accentPrimary)
+            }
+
+            Button {
+                paywallService.disableProForDev()
+            } label: {
+                Label("Dev: Free’ye Dön", systemImage: "arrow.uturn.backward")
+                    .foregroundColor(AppColors.textSecondary)
+            }
+
+            if let message = demoSeedMessage {
+                Text(message)
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+            }
+        } header: {
+            Text("Geliştirici")
+        } footer: {
+            Text("Bu bölüm sadece DEBUG build'de görünür. Release/TestFlight build'de yer almaz.")
+        }
+        .listRowBackground(Color.appSurface)
+    }
+    #endif
+
+    private func seedDemoData() {
+        #if DEBUG
+        let count = DemoDataSeeder.seed(context: modelContext)
+        if count > 0 {
+            demoSeedMessage = "✅ \(count) demo araç eklendi. Veriler yüklendi."
+        } else {
+            demoSeedMessage = "⚠️ Demo verileri zaten mevcut. Tekrar eklenmedi."
+        }
+        // Otomatik silinsin
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            demoSeedMessage = nil
+        }
+        #endif
+    }
+
+    private func deleteAllDemoData() {
+        #if DEBUG
+        DemoDataSeeder.deleteAll(context: modelContext)
+        demoSeedMessage = "🗑️ Tüm veriler silindi."
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            demoSeedMessage = nil
+        }
+        #endif
+    }
+
     // MARK: - Actions
     private func openSystemNotificationSettings() {
         if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
@@ -245,26 +326,115 @@ struct SettingsView: View {
 
     private func exportData() {
         isExporting = true
-        // Basit JSON export — tüm verileri birleştir
+        // Gerçek JSON export — araç, hatırlatıcı, masraf, bakım, belge ve ekspertiz verileri.
         DispatchQueue.global(qos: .userInitiated).async {
-            var export: [String: Any] = [:]
-
-            // Ana context'te fetch yap
+            // Fetch tüm verileri ana context'te yap
             DispatchQueue.main.async {
                 let vehicles = (try? modelContext.fetch(FetchDescriptor<Vehicle>())) ?? []
                 let reminders = (try? modelContext.fetch(FetchDescriptor<Reminder>())) ?? []
                 let expenses = (try? modelContext.fetch(FetchDescriptor<Expense>())) ?? []
                 let services = (try? modelContext.fetch(FetchDescriptor<ServiceRecord>())) ?? []
+                let documents = (try? modelContext.fetch(FetchDescriptor<VehicleDocument>())) ?? []
+                let inspections = (try? modelContext.fetch(FetchDescriptor<InspectionReport>())) ?? []
+                let saleFiles = (try? modelContext.fetch(FetchDescriptor<SaleFile>())) ?? []
 
+                var export: [String: Any] = [:]
+
+                export["vehicles"] = vehicles.map { v in
+                    [
+                        "id": v.id.uuidString,
+                        "plate": v.plate,
+                        "brand": v.brand,
+                        "model": v.model,
+                        "year": v.year as Any,
+                        "currentOdometer": v.currentOdometer,
+                        "fuelType": v.fuelTypeRaw,
+                        "usageType": v.usageTypeRaw,
+                        "createdAt": v.createdAt.ISO8601Format(),
+                        "archivedAt": v.archivedAt?.ISO8601Format() as Any,
+                    ] as [String: Any]
+                }
+
+                export["reminders"] = reminders.map { r in
+                    [
+                        "id": r.id.uuidString,
+                        "vehicleId": r.vehicleId.uuidString,
+                        "title": r.title,
+                        "type": r.typeRaw,
+                        "dueDate": r.dueDate?.ISO8601Format() as Any,
+                        "dueOdometer": r.dueOdometer as Any,
+                        "repeatRule": r.repeatRuleRaw as Any,
+                        "priority": r.priorityRaw,
+                        "status": r.statusRaw,
+                        "completedAt": r.completedAt?.ISO8601Format() as Any,
+                        "createdAt": r.createdAt.ISO8601Format(),
+                    ] as [String: Any]
+                }
+
+                export["expenses"] = expenses.map { e in
+                    [
+                        "id": e.id.uuidString,
+                        "vehicleId": e.vehicleId.uuidString,
+                        "category": e.categoryRaw,
+                        "amount": e.amount,
+                        "currency": e.currencyCode,
+                        "date": e.date.ISO8601Format(),
+                        "odometer": e.odometer as Any,
+                        "vendorName": e.vendorName as Any,
+                        "note": e.note,
+                    ] as [String: Any]
+                }
+
+                export["serviceRecords"] = services.map { s in
+                    [
+                        "id": s.id.uuidString,
+                        "vehicleId": s.vehicleId.uuidString,
+                        "serviceType": s.serviceTypeRaw,
+                        "date": s.date.ISO8601Format(),
+                        "odometer": s.odometer as Any,
+                        "vendorName": s.vendorName as Any,
+                        "laborCost": s.laborCost as Any,
+                        "partsCost": s.partsCost as Any,
+                        "totalCost": s.totalCost as Any,
+                        "oilType": s.oilType as Any,
+                        "notes": s.notes,
+                    ] as [String: Any]
+                }
+
+                export["documents"] = documents.map { d in
+                    [
+                        "id": d.id.uuidString,
+                        "vehicleId": d.vehicleId.uuidString,
+                        "type": d.typeRaw,
+                        "title": d.title,
+                        "originalFileName": d.originalFileName as Any,
+                        "issueDate": d.issueDate?.ISO8601Format() as Any,
+                        "expiryDate": d.expiryDate?.ISO8601Format() as Any,
+                        "includeInSaleFile": d.includeInSaleFile,
+                    ] as [String: Any]
+                }
+
+                export["inspectionReports"] = inspections.map { i in
+                    [
+                        "id": i.id.uuidString,
+                        "vehicleId": i.vehicleId.uuidString,
+                        "providerName": i.providerName,
+                        "reportDate": i.reportDate.ISO8601Format(),
+                        "odometer": i.odometer as Any,
+                        "summary": i.summary,
+                        "includeInSaleFile": i.includeInSaleFile,
+                    ] as [String: Any]
+                }
+
+                export["exportDate"] = Date().ISO8601Format()
+                export["appVersion"] = AppEnvironment.appVersion
                 export["vehicleCount"] = vehicles.count
                 export["reminderCount"] = reminders.count
                 export["expenseCount"] = expenses.count
                 export["serviceCount"] = services.count
-                export["exportDate"] = Date().ISO8601Format()
-                export["appVersion"] = AppEnvironment.appVersion
+                export["note"] = "Belge dosyaları (PDF/fotoğraf) JSON içine dahil edilmez."
 
-                if let jsonData = try? JSONSerialization.data(withJSONObject: export, options: .prettyPrinted),
-                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                if let jsonData = try? JSONSerialization.data(withJSONObject: export, options: .prettyPrinted) {
 
                     let tempURL = FileManager.default.temporaryDirectory
                         .appendingPathComponent("ruhsatim-export-\(Date().ISO8601Format().prefix(10)).json")
@@ -295,7 +465,7 @@ struct SettingsView: View {
     }
 
     private func deleteAllData() {
-        // Tüm entity'leri tek tek sil
+        // Tüm SwiftData modellerini tek tek sil
         if let vehicles = try? modelContext.fetch(FetchDescriptor<Vehicle>()) {
             for v in vehicles { modelContext.delete(v) }
         }

@@ -76,6 +76,15 @@ struct SaleFileView: View {
             .background(Color.appBackground)
             .navigationTitle("Satış Dosyası")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // Belgelerden includeInSaleFile == true olanları ön seç
+                if selectedDocumentIds.isEmpty {
+                    let preselectedIds = vehicleDocuments
+                        .filter { $0.includeInSaleFile }
+                        .map { $0.id }
+                    selectedDocumentIds = Set(preselectedIds)
+                }
+            }
             .sheet(isPresented: $showPaywall) {
                 PaywallView(feature: .saleFile)
             }
@@ -124,7 +133,7 @@ struct SaleFileView: View {
 
     // MARK: - Sections
     private var sectionsPicker: some View {
-        VStack(spacing: AppSpacing.md) {
+        Group {
             VStack(alignment: .leading, spacing: AppSpacing.sm) {
                 SectionHeader(title: "Dahil Edilecek Bölümler")
 
@@ -215,7 +224,7 @@ struct SaleFileView: View {
     private var documentsPicker: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
             SectionHeader(
-                title: "Belgeler",
+                title: "Belge Listesi",
                 actionTitle: selectedDocumentIds.count == vehicleDocuments.count ? "Seçimi Kaldır" : "Tümünü Seç",
                 action: {
                     if selectedDocumentIds.count == vehicleDocuments.count {
@@ -260,19 +269,32 @@ struct SaleFileView: View {
                 }
             }
             .background(RoundedRectangle(cornerRadius: AppRadius.medium).fill(Color.appSurface))
+
+            Text("Seçili belgelerin listesi PDF'e eklenir. Belge dosyaları (PDF/fotoğraf) PDF içine gömülmez.")
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textTertiary)
+                .padding(.top, 4)
         }
         .padding(.horizontal, AppSpacing.screenMarginH)
     }
 
     // MARK: - Inspection Info
     private var inspectionInfo: some View {
-        HStack(spacing: AppSpacing.sm) {
-            Image(systemName: "checkmark.seal.fill")
-                .foregroundColor(AppColors.success)
-            Text("En son ekspertiz raporu (\(vehicleInspections.first?.providerName ?? "")) dosyaya eklenecek.")
+        let includedCount = vehicleInspections.filter { $0.includeInSaleFile }.count
+        return VStack(alignment: .leading, spacing: AppSpacing.xs) {
+            HStack(spacing: AppSpacing.sm) {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundColor(AppColors.success)
+                Text(includedCount > 0
+                     ? "\(includedCount) ekspertiz raporu satış dosyasına eklenecek."
+                     : "Satış dosyasına dahil edilecek ekspertiz raporu yok.")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                Spacer()
+            }
+            Text("Ekspertiz raporlarını 'Satış dosyasına dahil et' seçeneği ile işaretleyebilirsin.")
                 .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
-            Spacer()
+                .foregroundColor(AppColors.textTertiary)
         }
         .padding(AppSpacing.md)
         .background(RoundedRectangle(cornerRadius: AppRadius.medium).fill(Color.appSurface))
@@ -366,11 +388,13 @@ struct SaleFileView: View {
 
         let selectedDocs = vehicleDocuments.filter { selectedDocumentIds.contains($0.id) }
 
+        let includedInspections = vehicleInspections.filter { $0.includeInSaleFile }
+
         let data = PDFExportService.PDFData(
             vehicle: vehicle,
             serviceRecords: vehicleServiceRecords,
             expenses: vehicleExpenses,
-            inspectionReports: vehicleInspections,
+            inspectionReports: includedInspections,
             documents: selectedDocs,
             includedSections: Array(selectedSections),
             includeExpenseSummary: includeExpenseSummary

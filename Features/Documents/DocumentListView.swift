@@ -54,7 +54,7 @@ struct DocumentListView: View {
         .alert("Dosya bu cihazda yok", isPresented: $showMissingFileAlert) {
             Button("Tamam", role: .cancel) {}
         } message: {
-            Text("Bu belgenin bilgileri senkronlandı ancak dosyası henüz bu cihaza inmedi. Senkronizasyon tamamlanınca tekrar dene; gelmezse belgeyi yeniden ekleyebilirsin.")
+            Text("Bu belgenin dosyası bu cihazda bulunamadı. Belgeyi yeniden eklemeyi dene.")
         }
         .onAppear(perform: backfillCloudDataIfNeeded)
     }

@@ -34,12 +34,35 @@ final class Reminder {
         set { statusRaw = newValue.rawValue }
     }
 
+    // MARK: Computed — Repeat rule
+    var repeatRule: ReminderRepeatRule {
+        ReminderRepeatEngine.shared.rule(from: repeatRuleRaw)
+    }
+
     // MARK: Computed properties
     var isOverdue: Bool {
         guard statusRaw != ReminderStatus.completed.rawValue,
               statusRaw != ReminderStatus.archived.rawValue,
               let dueDate else { return false }
         return dueDate < Date()
+    }
+
+    // MARK: Km-based durum
+    /// Km eşiği olan aktif hatırlatıcının, aracın mevcut km'sine göre gecikmiş olup olmadığını döner.
+    func isKmOverdue(vehicleOdometer: Int) -> Bool {
+        guard let dueOdometer,
+              statusRaw != ReminderStatus.completed.rawValue,
+              statusRaw != ReminderStatus.archived.rawValue else { return false }
+        return vehicleOdometer >= dueOdometer
+    }
+
+    /// Km eşiğine yaklaşan (belirtilen km aralığında) aktif hatırlatıcı.
+    func isKmUpcoming(vehicleOdometer: Int, withinKm: Int = 2000) -> Bool {
+        guard let dueOdometer,
+              statusRaw != ReminderStatus.completed.rawValue,
+              statusRaw != ReminderStatus.archived.rawValue else { return false }
+        let remaining = dueOdometer - vehicleOdometer
+        return remaining > 0 && remaining <= withinKm
     }
 
     var isToday: Bool {

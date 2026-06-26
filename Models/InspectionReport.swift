@@ -14,6 +14,7 @@ final class InspectionReport {
     var summary: String = ""
     var documentId: UUID?
     var verificationStatusRaw: String = VerificationStatus.manual.rawValue
+    var includeInSaleFile: Bool = false
     var createdAt: Date = Date()
 
     // MARK: Computed — Enum
@@ -44,6 +45,7 @@ final class InspectionReport {
         summary: String = "",
         documentId: UUID? = nil,
         verificationStatus: VerificationStatus = .manual,
+        includeInSaleFile: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -55,6 +57,7 @@ final class InspectionReport {
         self.summary = summary
         self.documentId = documentId
         self.verificationStatusRaw = verificationStatus.rawValue
+        self.includeInSaleFile = includeInSaleFile
         self.createdAt = createdAt
     }
 }

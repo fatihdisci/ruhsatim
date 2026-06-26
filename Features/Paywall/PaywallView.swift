@@ -1,11 +1,32 @@
 import SwiftUI
+import StoreKit
+
+// MARK: - SubscriptionPeriod Display Helper
+extension Product.SubscriptionPeriod {
+    var periodDisplay: String {
+        let unitStr: String
+        switch unit {
+        case .day: unitStr = "gün"
+        case .week: unitStr = "hafta"
+        case .month: unitStr = "ay"
+        case .year: unitStr = "yıl"
+        @unknown default: unitStr = ""
+        }
+        if value == 1 {
+            return "/\(unitStr)"
+        }
+        return "/\(value) \(unitStr)"
+    }
+}
 
 // MARK: - Paywall View
 // Etik freemium paywall. Karanlık desen yok.
 // Değer anlarında gösterilir, ilk açılışta değil.
+// Düzen: kritik öğeler (fiyat, CTA, restore, terms, privacy) ilk ekranda.
 
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var paywallService: PaywallService
 
     let feature: PaywallFeature
@@ -39,33 +60,70 @@ struct PaywallView: View {
         }
     }
 
-    @State private var selectedProductIndex = 1 // Varsayılan: yıllık
+    @State private var selectedProductId = "com.ruhsatim.pro.yearly" // Varsayılan: yıllık
     @State private var isPurchasing = false
     @State private var isRestoring = false
+
+    // MARK: - Pricing Options (StoreKit veya dev mode fallback)
+    struct PricingOption: Identifiable {
+        let id: String // product ID
+        let title: String
+        let price: String
+        let period: String
+        let badge: String?
+        let sortOrder: Int
+    }
+
+    private var pricingOptions: [PricingOption] {
+        if paywallService.products.isEmpty {
+            // Dev mode fallback — ürün ID'lerine göre sıralı
+            return [
+                PricingOption(id: "com.ruhsatim.pro.monthly", title: "Aylık", price: "₺79,99", period: "/ay", badge: nil, sortOrder: 0),
+                PricingOption(id: "com.ruhsatim.pro.yearly", title: "Yıllık", price: "₺599,99", period: "/yıl", badge: "En Avantajlı", sortOrder: 1),
+                PricingOption(id: "com.ruhsatim.pro.lifetime", title: "Ömür Boyu", price: "₺1.499,99", period: "", badge: "Tek Seferlik", sortOrder: 2),
+            ]
+        }
+        return paywallService.products.map { product in
+            PricingOption(
+                id: product.id,
+                title: product.displayName,
+                price: product.displayPrice,
+                period: product.subscription?.subscriptionPeriod.periodDisplay ?? "",
+                badge: product.id.contains("yearly") ? "En Avantajlı"
+                     : (product.id.contains("lifetime") ? "Tek Seferlik" : nil),
+                sortOrder: product.id.contains("monthly") ? 0
+                         : (product.id.contains("yearly") ? 1 : 2)
+            )
+        }.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    private let privacyURL = URL(string: "https://fatihdisci.github.io/ruhsatim/privacy.html")!
+    private let termsURL = URL(string: "https://fatihdisci.github.io/ruhsatim/terms.html")!
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppSpacing.lg) {
-                    // Hero
+                    // Kompakt hero
                     heroSection
 
-                    // Free / Pro karşılaştırması
-                    planComparison
-
-                    // Neden Pro?
-                    proBenefits
-
-                    // Fiyatlandırma
+                    // Fiyatlandırma — ilk ekranda görünür
                     pricingSection
 
                     // CTA
                     ctaSection
 
-                    // Güven mesajları
+                    // Geri yükle + yasal linkler + güven — ilk ekranda görünür
+                    restoreAndLegalSection
                     trustSection
+
+                    // Aşağıda: Pro özellik listesi
+                    proBenefits
+
+                    // Aşağıda: Free/Pro karşılaştırması
+                    planComparison
                 }
-                .padding(.vertical, AppSpacing.xl)
+                .padding(.vertical, AppSpacing.lg)
             }
             .background(Color.appBackground)
             .navigationTitle("Pro'ya Geç")
@@ -81,10 +139,9 @@ struct PaywallView: View {
 
     // MARK: - Hero
     private var heroSection: some View {
-        VStack(spacing: AppSpacing.md) {
-            // Gradyan hero (tasarım anayasası izinli: paywall hero)
+        VStack(spacing: AppSpacing.sm) {
             ZStack {
-                RoundedRectangle(cornerRadius: AppRadius.xlarge)
+                RoundedRectangle(cornerRadius: AppRadius.large)
                     .fill(
                         LinearGradient(
                             colors: [AppColors.vehicle, AppColors.accentPrimary],
@@ -92,27 +149,37 @@ struct PaywallView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(height: 160)
+                    .frame(height: 100)
 
-                VStack(spacing: AppSpacing.sm) {
-                    Image(systemName: "crown.fill")
-                        .font(.system(size: 36))
-                        .foregroundColor(.white.opacity(0.9))
-                    Text(feature.title)
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
-                    Text(feature.description)
-                        .font(AppTypography.secondary)
-                        .foregroundColor(.white.opacity(0.8))
-                        .multilineTextAlignment(.center)
+                // Dark mode scrim: gradyan kartın koyulaşmasını ve metin okunabilirliğini artırır
+                if colorScheme == .dark {
+                    RoundedRectangle(cornerRadius: AppRadius.large)
+                        .fill(Color.black.opacity(0.35))
+                        .frame(height: 100)
                 }
-                .padding(.horizontal, AppSpacing.xl)
+
+                HStack(spacing: AppSpacing.md) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 28))
+                        .foregroundColor(.white.opacity(0.9))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(feature.title)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                        Text(feature.description)
+                            .font(AppTypography.caption)
+                            .foregroundColor(.white.opacity(0.85))
+                            .lineLimit(2)
+                    }
+                }
+                .padding(.horizontal, AppSpacing.lg)
             }
             .padding(.horizontal, AppSpacing.screenMarginH)
         }
     }
 
-    // MARK: - Benefits
+    // MARK: - Benefits (aşağıda, scroll ile)
     private var proBenefits: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
             SectionHeader(title: "Pro ile Gelenler")
@@ -153,7 +220,7 @@ struct PaywallView: View {
 
 
 
-    // MARK: - Free / Pro Comparison
+    // MARK: - Free / Pro Comparison (aşağıda, scroll ile)
     private var planComparison: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
             SectionHeader(title: "Free ve Pro")
@@ -191,60 +258,32 @@ struct PaywallView: View {
     }
 
 
-    // MARK: - Pricing
+    // MARK: - Pricing (ilk ekranda)
     private var pricingSection: some View {
         VStack(spacing: AppSpacing.sm) {
             SectionHeader(title: "Plan Seç")
 
-            // Dev mode: sabit fiyatlar
             VStack(spacing: AppSpacing.sm) {
-                pricingOption(
-                    index: 0,
-                    title: "Aylık",
-                    price: "₺79",
-                    period: "/ay",
-                    isSelected: selectedProductIndex == 0
-                )
-                pricingOption(
-                    index: 1,
-                    title: "Yıllık",
-                    price: "₺599",
-                    period: "/yıl",
-                    badge: "En Avantajlı",
-                    isSelected: selectedProductIndex == 1
-                )
-                pricingOption(
-                    index: 2,
-                    title: "Ömür Boyu",
-                    price: "₺1.499",
-                    period: "",
-                    badge: "Tek Seferlik",
-                    isSelected: selectedProductIndex == 2
-                )
+                ForEach(pricingOptions) { option in
+                    pricingOption(option, isSelected: selectedProductId == option.id)
+                }
             }
         }
         .padding(.horizontal, AppSpacing.screenMarginH)
     }
 
-    private func pricingOption(
-        index: Int,
-        title: String,
-        price: String,
-        period: String,
-        badge: String? = nil,
-        isSelected: Bool
-    ) -> some View {
+    private func pricingOption(_ option: PricingOption, isSelected: Bool) -> some View {
         Button {
-            selectedProductIndex = index
+            selectedProductId = option.id
         } label: {
             HStack(spacing: AppSpacing.sm) {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: AppSpacing.xxs) {
-                        Text(title)
+                        Text(option.title)
                             .font(AppTypography.bodyMedium)
                             .foregroundColor(AppColors.textPrimary)
 
-                        if let badge {
+                        if let badge = option.badge {
                             Text(badge)
                                 .font(.system(size: 9, weight: .medium))
                                 .foregroundColor(AppColors.success)
@@ -257,11 +296,11 @@ struct PaywallView: View {
                     }
 
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
-                        Text(price)
+                        Text(option.price)
                             .font(AppTypography.amount)
                             .foregroundColor(AppColors.textPrimary)
-                        if !period.isEmpty {
-                            Text(period)
+                        if !option.period.isEmpty {
+                            Text(option.period)
                                 .font(AppTypography.caption)
                                 .foregroundColor(AppColors.textSecondary)
                         }
@@ -294,24 +333,28 @@ struct PaywallView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - CTA
+    // MARK: - CTA (ilk ekranda)
     private var ctaSection: some View {
-        VStack(spacing: AppSpacing.sm) {
-            Button {
-                performPurchase()
-            } label: {
-                HStack {
-                    if isPurchasing {
-                        ProgressView().tint(.white)
-                    }
-                    Text(isPurchasing ? "İşlem yapılıyor..." : "Pro'ya Geç")
+        Button {
+            performPurchase()
+        } label: {
+            HStack {
+                if isPurchasing {
+                    ProgressView().tint(.white)
                 }
-                .frame(maxWidth: .infinity)
+                Text(isPurchasing ? "İşlem yapılıyor..." : "Pro'ya Geç")
             }
-            .buttonStyle(.primary)
-            .disabled(isPurchasing || isRestoring)
-            .padding(.horizontal, AppSpacing.screenMarginH)
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.primary)
+        .disabled(isPurchasing || isRestoring)
+        .padding(.horizontal, AppSpacing.screenMarginH)
+    }
 
+    // MARK: - Restore + Yasal Linkler (ilk ekranda)
+    private var restoreAndLegalSection: some View {
+        VStack(spacing: AppSpacing.sm) {
+            // Satın almaları geri yükle
             Button {
                 performRestore()
             } label: {
@@ -325,10 +368,29 @@ struct PaywallView: View {
                 .foregroundColor(AppColors.accentPrimary)
             }
             .disabled(isPurchasing || isRestoring)
+
+            // Yasal linkler
+            HStack(spacing: AppSpacing.lg) {
+                Link(destination: privacyURL) {
+                    Text("Gizlilik Politikası")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+
+                Text("•")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textTertiary)
+
+                Link(destination: termsURL) {
+                    Text("Kullanım Koşulları")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+            }
         }
     }
 
-    // MARK: - Trust
+    // MARK: - Trust (ilk ekranda, yasal linklerin hemen altında)
     private var trustSection: some View {
         VStack(spacing: AppSpacing.xs) {
             HStack(spacing: 4) {
@@ -355,14 +417,13 @@ struct PaywallView: View {
             return
         }
 
-        guard selectedProductIndex < paywallService.products.count else {
+        guard let product = paywallService.products.first(where: { $0.id == selectedProductId }) else {
             paywallService.purchaseError = "Ürün bulunamadı."
             return
         }
 
         isPurchasing = true
         Task {
-            let product = paywallService.products[selectedProductIndex]
             let success = await paywallService.purchase(product)
             await MainActor.run {
                 isPurchasing = false

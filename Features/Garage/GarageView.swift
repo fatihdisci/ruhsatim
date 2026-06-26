@@ -16,12 +16,23 @@ struct GarageView: View {
     @State private var showAddVehicle = false
     @State private var showPaywall = false
     @State private var showSettings = false
+    @State private var showArchivedVehicles = false
+
+    private var activeVehicles: [Vehicle] {
+        vehicles.filter { $0.archivedAt == nil }
+    }
+
+    private var archivedVehicles: [Vehicle] {
+        vehicles.filter { $0.archivedAt != nil }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 if vehicles.isEmpty {
                     emptyGarage
+                } else if activeVehicles.isEmpty {
+                    onlyArchivedView
                 } else {
                     vehicleList
                 }
@@ -52,6 +63,19 @@ struct GarageView: View {
                         .accessibilityLabel("Araç Ekle")
                     }
                 }
+
+                if !archivedVehicles.isEmpty {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button {
+                            showArchivedVehicles.toggle()
+                        } label: {
+                            Image(systemName: "archivebox")
+                                .font(.body)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                        .accessibilityLabel("Arşivlenmiş Araçlar")
+                    }
+                }
             }
             .sheet(isPresented: $showAddVehicle) {
                 VehicleFormView()
@@ -78,10 +102,68 @@ struct GarageView: View {
 
     // MARK: - Actions
     private func handleAddVehicle() {
-        if paywallService.canAddVehicle(currentCount: vehicles.count) {
+        if paywallService.canAddVehicle(currentCount: activeVehicles.count) {
             showAddVehicle = true
         } else {
             showPaywall = true
+        }
+    }
+
+    // MARK: - Arşiv Görünümü
+    private var onlyArchivedView: some View {
+        VStack(spacing: AppSpacing.lg) {
+            EmptyStateView(
+                icon: "archivebox",
+                title: "Tüm araçlar arşivlenmiş",
+                description: "Yeni bir araç ekleyebilir veya arşivlenmiş araçları görüntüleyebilirsin.",
+                actionTitle: "Araç Ekle",
+                action: { handleAddVehicle() }
+            )
+
+            if !archivedVehicles.isEmpty {
+                archivedSection
+            }
+        }
+    }
+
+    private var archivedSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            DisclosureGroup(isExpanded: $showArchivedVehicles) {
+                ForEach(archivedVehicles) { vehicle in
+                    NavigationLink {
+                        VehicleDetailView(vehicle: vehicle)
+                    } label: {
+                        HStack {
+                            Image(systemName: "archivebox.fill")
+                                .foregroundColor(AppColors.textTertiary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(vehicle.plate.isEmpty ? vehicle.fullName : vehicle.plate)
+                                    .font(AppTypography.bodyMedium)
+                                    .foregroundColor(AppColors.textPrimary)
+                                Text("Arşivlendi: \(vehicle.archivedAt?.formatted(date: .abbreviated, time: .omitted) ?? "")")
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textTertiary)
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, AppSpacing.xs)
+                        .padding(.horizontal, AppSpacing.sm)
+                    }
+                }
+            } label: {
+                HStack(spacing: AppSpacing.xs) {
+                    Image(systemName: "archivebox")
+                        .foregroundColor(AppColors.textTertiary)
+                    Text("Arşivlenmiş Araçlar")
+                        .font(AppTypography.bodyMedium)
+                        .foregroundColor(AppColors.textSecondary)
+                    Text("(\(archivedVehicles.count))")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textTertiary)
+                }
+                .padding(.vertical, AppSpacing.xs)
+            }
+            .padding(.horizontal, AppSpacing.screenMarginH)
         }
     }
 
@@ -96,8 +178,8 @@ struct GarageView: View {
                     action: nil
                 )
 
-                // Vehicle cards — NavigationLink ile detay ekranına
-                ForEach(vehicles) { vehicle in
+                // Vehicle cards — NavigationLink ile detay ekranına (sadece aktif araçlar)
+                ForEach(activeVehicles) { vehicle in
                     NavigationLink {
                         VehicleDetailView(vehicle: vehicle)
                     } label: {
@@ -110,7 +192,13 @@ struct GarageView: View {
                     }
                     .buttonStyle(PlainCardButtonStyle())
                 }
-                .padding(.bottom, AppSpacing.xxl)
+
+                // Arşivlenmiş araçlar
+                if !archivedVehicles.isEmpty {
+                    archivedSection
+                }
+
+                Spacer().frame(height: AppSpacing.xxl)
             }
             .padding(.vertical, AppSpacing.md)
         }

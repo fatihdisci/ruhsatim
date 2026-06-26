@@ -542,3 +542,152 @@ final class PaywallLimitTests: XCTestCase {
         XCTAssertTrue(pro.canAccessAdvancedReports())
     }
 }
+
+// MARK: - ReminderRepeatEngine Tests
+final class ReminderRepeatEngineTests: XCTestCase {
+
+    func testYearlyNextDate() {
+        let baseDate = DateComponents(calendar: .current, year: 2026, month: 6, day: 15).date!
+        let next = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: .yearly)
+        XCTAssertNotNil(next)
+        let comps = Calendar.current.dateComponents([.year, .month, .day], from: next!)
+        XCTAssertEqual(comps.year, 2027)
+        XCTAssertEqual(comps.month, 6)
+        XCTAssertEqual(comps.day, 15)
+    }
+
+    func testMonthlyNextDate() {
+        let baseDate = DateComponents(calendar: .current, year: 2026, month: 1, day: 10).date!
+        let next = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: .monthly)
+        XCTAssertNotNil(next)
+        let comps = Calendar.current.dateComponents([.year, .month, .day], from: next!)
+        XCTAssertEqual(comps.year, 2026)
+        XCTAssertEqual(comps.month, 2)
+        XCTAssertEqual(comps.day, 10)
+    }
+
+    func testQuarterlyNextDate() {
+        let baseDate = DateComponents(calendar: .current, year: 2026, month: 1, day: 1).date!
+        let next = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: .quarterly)
+        XCTAssertNotNil(next)
+        let comps = Calendar.current.dateComponents([.year, .month], from: next!)
+        XCTAssertEqual(comps.year, 2026)
+        XCTAssertEqual(comps.month, 4) // +3 ay
+    }
+
+    func testBiannualNextDate() {
+        let baseDate = DateComponents(calendar: .current, year: 2026, month: 3, day: 20).date!
+        let next = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: .biannual)
+        XCTAssertNotNil(next)
+        let comps = Calendar.current.dateComponents([.year, .month], from: next!)
+        XCTAssertEqual(comps.year, 2026)
+        XCTAssertEqual(comps.month, 9) // +6 ay
+    }
+
+    func testNoneReturnsNil() {
+        let baseDate = Date()
+        let next = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: .none)
+        XCTAssertNil(next)
+    }
+
+    func testCustomReturnsNil() {
+        let baseDate = Date()
+        let next = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: .custom)
+        XCTAssertNil(next)
+    }
+
+    func testRuleParsingFromRawValue() {
+        XCTAssertEqual(ReminderRepeatEngine.shared.rule(from: "monthly"), .monthly)
+        XCTAssertEqual(ReminderRepeatEngine.shared.rule(from: "yearly"), .yearly)
+        XCTAssertEqual(ReminderRepeatEngine.shared.rule(from: "quarterly"), .quarterly)
+        XCTAssertEqual(ReminderRepeatEngine.shared.rule(from: "biannual"), .biannual)
+        XCTAssertEqual(ReminderRepeatEngine.shared.rule(from: "none"), .none)
+        XCTAssertEqual(ReminderRepeatEngine.shared.rule(from: nil), .none)
+        XCTAssertEqual(ReminderRepeatEngine.shared.rule(from: "invalid"), .none)
+    }
+
+    func testYearEndBoundary() {
+        // Aralık ayından Ocak'a geçiş
+        let baseDate = DateComponents(calendar: .current, year: 2026, month: 12, day: 31).date!
+        let next = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: .monthly)
+        XCTAssertNotNil(next)
+        let comps = Calendar.current.dateComponents([.year, .month, .day], from: next!)
+        XCTAssertEqual(comps.year, 2027)
+        XCTAssertEqual(comps.month, 1)
+    }
+}
+
+// MARK: - Km Reminder Tests
+final class KmReminderTests: XCTestCase {
+
+    func testKmOverdueWhenOdometerExceeds() {
+        let reminder = Reminder(vehicleId: UUID(), dueOdometer: 50000)
+        XCTAssertTrue(reminder.isKmOverdue(vehicleOdometer: 55000))
+        XCTAssertFalse(reminder.isKmOverdue(vehicleOdometer: 45000))
+    }
+
+    func testKmOverdueExactlyAtThreshold() {
+        let reminder = Reminder(vehicleId: UUID(), dueOdometer: 50000)
+        XCTAssertTrue(reminder.isKmOverdue(vehicleOdometer: 50000))
+    }
+
+    func testKmOverdueIgnoresCompletedReminder() {
+        let reminder = Reminder(vehicleId: UUID(), dueOdometer: 50000, status: .completed)
+        XCTAssertFalse(reminder.isKmOverdue(vehicleOdometer: 55000))
+    }
+
+    func testKmOverdueNoThreshold() {
+        let reminder = Reminder(vehicleId: UUID(), dueOdometer: nil)
+        XCTAssertFalse(reminder.isKmOverdue(vehicleOdometer: 55000))
+    }
+
+    func testKmUpcomingWithinRange() {
+        let reminder = Reminder(vehicleId: UUID(), dueOdometer: 50000)
+        XCTAssertTrue(reminder.isKmUpcoming(vehicleOdometer: 49000, withinKm: 2000))
+        // 1000 km within 2000 range
+        XCTAssertTrue(reminder.isKmUpcoming(vehicleOdometer: 49000))
+    }
+
+    func testKmUpcomingOutsideRange() {
+        let reminder = Reminder(vehicleId: UUID(), dueOdometer: 50000)
+        XCTAssertFalse(reminder.isKmUpcoming(vehicleOdometer: 47000, withinKm: 2000))
+    }
+
+    func testKmUpcomingWhenExceeded() {
+        // Zaten geçilmişse upcoming false dönmeli
+        let reminder = Reminder(vehicleId: UUID(), dueOdometer: 50000)
+        XCTAssertFalse(reminder.isKmUpcoming(vehicleOdometer: 51000, withinKm: 2000))
+    }
+
+    func testRepeatRuleIsPreservedOnModel() {
+        // Reminder modelinde repeatRuleRaw düzgün parse ediliyor mu?
+        let reminder = Reminder(vehicleId: UUID(), repeatRule: "yearly")
+        XCTAssertEqual(reminder.repeatRule, .yearly)
+        XCTAssertEqual(reminder.repeatRuleRaw, "yearly")
+    }
+
+    func testRepeatRuleNoneByDefault() {
+        let reminder = Reminder(vehicleId: UUID())
+        XCTAssertEqual(reminder.repeatRule, .none)
+        XCTAssertNil(reminder.repeatRuleRaw)
+    }
+}
+
+// MARK: - InspectionReport includeInSaleFile Tests
+final class InspectionReportIncludeInSaleFileTests: XCTestCase {
+
+    func testDefaultIncludeInSaleFileIsFalse() {
+        let report = InspectionReport(vehicleId: UUID())
+        XCTAssertFalse(report.includeInSaleFile)
+    }
+
+    func testExplicitIncludeInSaleFileTrue() {
+        let report = InspectionReport(vehicleId: UUID(), includeInSaleFile: true)
+        XCTAssertTrue(report.includeInSaleFile)
+    }
+
+    func testExplicitIncludeInSaleFileFalse() {
+        let report = InspectionReport(vehicleId: UUID(), includeInSaleFile: false)
+        XCTAssertFalse(report.includeInSaleFile)
+    }
+}
