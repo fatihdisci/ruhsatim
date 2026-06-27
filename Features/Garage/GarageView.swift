@@ -206,7 +206,7 @@ struct GarageView: View {
                         endPoint: .bottomTrailing
                     )
 
-                    Image(systemName: "car.fill")
+                    Image(systemName: vehicle.vehicleType == .motorcycle ? "bicycle" : "car.fill")
                         .font(.system(size: 48, weight: .light))
                         .foregroundColor(.white.opacity(0.7))
                 }
@@ -518,6 +518,8 @@ struct GarageView: View {
         if vehicle.transmissionType != nil { score += 10 }
         if vehicle.purchaseDate != nil { score += 10 }
         if vehicle.purchasePrice != nil { score += 10 }
+        // Motosiklet özel: motor hacmi varsa bonus
+        if vehicle.vehicleType == .motorcycle, vehicle.engineCC != nil { score += 10 }
         let vehReminders = activeReminders.filter { $0.vehicleId == vehicle.id }
         if !vehReminders.isEmpty { score += 15 }
         if !vehReminders.contains(where: { $0.isOverdue }) { score += 15 }

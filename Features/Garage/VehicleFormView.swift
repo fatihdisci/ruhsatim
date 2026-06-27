@@ -11,6 +11,7 @@ struct VehicleFormView: View {
     @Environment(\.dismiss) private var dismiss
 
     // MARK: Required fields
+    @State private var vehicleType: VehicleType = .car
     @State private var plate = ""
     @State private var brand = ""
     @State private var model = ""
@@ -19,6 +20,10 @@ struct VehicleFormView: View {
     @State private var fuelType: FuelType = .gasoline
     @State private var usageType: VehicleUsageType = .personal
     @State private var transmissionType: TransmissionType = .automatic
+
+    // MARK: Motorcycle-specific
+    @State private var motorcycleType: MotorcycleType? = nil
+    @State private var engineCCText = ""
 
     // MARK: Optional fields
     @State private var nickname = ""
@@ -61,7 +66,11 @@ struct VehicleFormView: View {
     var body: some View {
         NavigationStack {
             Form {
+                vehicleTypeSection
                 requiredSection
+                if vehicleType == .motorcycle {
+                    motorcycleSection
+                }
                 optionalSection
                 firstRemindersSection
 
@@ -97,6 +106,69 @@ struct VehicleFormView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Vehicle Type Section
+    private var vehicleTypeSection: some View {
+        Section {
+            Picker(selection: $vehicleType) {
+                ForEach(VehicleType.allCases, id: \.self) { type in
+                    HStack(spacing: AppSpacing.xs) {
+                        Image(systemName: type == .car ? "car.fill" : "bicycle")
+                            .font(.body)
+                        Text(type.displayName)
+                    }
+                    .tag(type)
+                }
+            } label: {
+                Label("Araç Türü", systemImage: "steeringwheel")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textPrimary)
+            }
+            .onChange(of: vehicleType) { _, newType in
+                // Araç türü değişince motosiklet alanlarını sıfırla
+                if newType == .car {
+                    motorcycleType = nil
+                    engineCCText = ""
+                }
+            }
+        } header: {
+            Text("Araç Türü")
+        }
+        .listRowBackground(Color.appSurface)
+    }
+
+    // MARK: - Motorcycle Section
+    private var motorcycleSection: some View {
+        Section {
+            Picker(selection: $motorcycleType) {
+                Text("Seç (isteğe bağlı)").tag(nil as MotorcycleType?)
+                ForEach(MotorcycleType.allCases, id: \.self) { type in
+                    Text(type.displayName).tag(type as MotorcycleType?)
+                }
+            } label: {
+                Label("Motosiklet Tipi", systemImage: "bicycle")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textPrimary)
+            }
+
+            HStack(spacing: AppSpacing.sm) {
+                Image(systemName: "engine.combustion")
+                    .foregroundColor(AppColors.textTertiary)
+                    .frame(width: 24)
+                TextField("Motor Hacmi (cc)", text: $engineCCText)
+                    .font(AppTypography.body)
+                    .keyboardType(.numberPad)
+                if !engineCCText.isEmpty {
+                    Text("cc")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textTertiary)
+                }
+            }
+        } header: {
+            Text("Motosiklet Bilgileri")
+        }
+        .listRowBackground(Color.appSurface)
     }
 
     // MARK: - Required Section
@@ -429,6 +501,11 @@ struct VehicleFormView: View {
         return errors
     }
 
+    private var engineCC: Int? {
+        let text = engineCCText.trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? nil : Int(text)
+    }
+
     private func performSave() {
         let vehicle = Vehicle(
             nickname: nickname.trimmingCharacters(in: .whitespaces),
@@ -436,6 +513,9 @@ struct VehicleFormView: View {
             brand: brand.trimmingCharacters(in: .whitespaces),
             model: model.trimmingCharacters(in: .whitespaces),
             year: year,
+            vehicleType: vehicleType,
+            motorcycleType: vehicleType == .motorcycle ? motorcycleType : nil,
+            engineCC: vehicleType == .motorcycle ? engineCC : nil,
             fuelType: fuelType,
             transmissionType: transmissionType,
             currentOdometer: odometer ?? 0,

@@ -1,5 +1,51 @@
 import Foundation
 
+// MARK: - Vehicle Type
+enum VehicleType: String, Codable, CaseIterable {
+    case car = "Otomobil"
+    case motorcycle = "Motosiklet"
+
+    var displayName: String { rawValue }
+
+    /// VehicleDetail / Garage hero için SF Symbol.
+    var heroSymbol: String {
+        switch self {
+        case .car: return "car.fill"
+        case .motorcycle: return "bicycle" // SF Symbols'ta motosiklet yok, fallback
+        }
+    }
+
+    /// Kullanıcıya gösterilen genel ad (örn: "araç" / "motosiklet").
+    var vehicleNoun: String {
+        switch self {
+        case .car: return "araç"
+        case .motorcycle: return "motosiklet"
+        }
+    }
+
+    /// "Araç fotoğrafı" / "Motosiklet fotoğrafı" gibi metinler için.
+    func localizedNoun(display: String) -> String {
+        switch self {
+        case .car: return display
+        case .motorcycle: return display.replacingOccurrences(of: "Araç", with: "Motosiklet")
+        }
+    }
+}
+
+// MARK: - Motorcycle Type
+enum MotorcycleType: String, Codable, CaseIterable {
+    case scooter = "Scooter"
+    case naked = "Naked"
+    case touring = "Touring"
+    case enduro = "Enduro"
+    case cruiser = "Cruiser"
+    case sport = "Sport"
+    case commuter = "Commuter"
+    case other = "Diğer"
+
+    var displayName: String { rawValue }
+}
+
 // MARK: - Fuel Type
 enum FuelType: String, Codable, CaseIterable {
     case gasoline = "Benzin"
@@ -31,6 +77,7 @@ enum VehicleUsageType: String, Codable, CaseIterable {
 
 // MARK: - Reminder Type
 enum ReminderType: String, Codable, CaseIterable {
+    // Ortak
     case inspection = "Muayene"
     case trafficInsurance = "Trafik Sigortası"
     case casco = "Kasko"
@@ -40,10 +87,21 @@ enum ReminderType: String, Codable, CaseIterable {
     case oilChange = "Yağ Değişimi"
     case tire = "Lastik"
     case battery = "Akü"
-    case timingBelt = "Triger"
     case brakes = "Fren"
     case warranty = "Garanti"
+    // Otomobil özel
+    case timingBelt = "Triger"
     case hgs = "HGS"
+    // Motosiklet özel
+    case chainMaintenance = "Zincir Bakımı"
+    case chainSprocketSet = "Zincir/Dişli Seti"
+    case sparkPlug = "Buji"
+    case airFilter = "Hava Filtresi"
+    case clutchCable = "Debriyaj Teli"
+    case suspensionCheck = "Amortisör/Keçe Kontrolü"
+    case seasonStartCheck = "Sezon Başlangıç Kontrolü"
+    case winterPrep = "Kışlama Hazırlığı"
+    // Genel
     case custom = "Diğer"
 
     var displayName: String { rawValue }
@@ -60,9 +118,39 @@ enum ReminderType: String, Codable, CaseIterable {
         case .brakes: return "circle.dotted.circle"
         case .warranty: return "checkmark.shield"
         case .hgs: return "road.lanes"
+        case .chainMaintenance, .chainSprocketSet: return "circle.dotted.circle"
+        case .sparkPlug: return "flame"
+        case .airFilter: return "wind"
+        case .clutchCable: return "circle.hexagonpath"
+        case .suspensionCheck: return "circle.bottomhalf.filled"
+        case .seasonStartCheck: return "sun.max"
+        case .winterPrep: return "snowflake"
         case .custom: return "bell"
         }
     }
+
+    /// Belirtilen vehicleType için uygun şablonları döndürür.
+    /// Otomobil: Triger, HGS gösterilir; motosiklet özel şablonlar gizlenir.
+    /// Motosiklet: Zincir, Buji, Hava filtresi vb. gösterilir; Triger, HGS gizlenir.
+    static func templates(for vehicleType: VehicleType?) -> [ReminderType] {
+        let all = allCases.filter { $0 != .custom }
+        guard let vt = vehicleType else { return all }
+        switch vt {
+        case .car:
+            return all.filter { !motorcycleOnlyTypes.contains($0) }
+        case .motorcycle:
+            return all.filter { !carOnlyTypes.contains($0) }
+        }
+    }
+
+    /// Sadece otomobile özgü şablonlar
+    static let carOnlyTypes: Set<ReminderType> = [.timingBelt, .hgs]
+
+    /// Sadece motosiklete özgü şablonlar
+    static let motorcycleOnlyTypes: Set<ReminderType> = [
+        .chainMaintenance, .chainSprocketSet, .sparkPlug, .airFilter,
+        .clutchCable, .suspensionCheck, .seasonStartCheck, .winterPrep
+    ]
 }
 
 // MARK: - Reminder Priority
@@ -95,22 +183,30 @@ enum ReminderStatus: String, Codable, CaseIterable {
 
 // MARK: - Expense Category
 enum ExpenseCategory: String, Codable, CaseIterable {
-    case fuel = "Yakıt"
+    // Ortak
     case service = "Bakım"
-    case repair = "Tamir"
-    case part = "Parça"
+    case oil = "Yağ"
     case tire = "Lastik"
+    case brake = "Fren"
     case battery = "Akü"
     case insurance = "Sigorta"
     case casco = "Kasko"
     case tax = "MTV"
     case inspection = "Muayene"
+    case fuel = "Yakıt"
+    case repair = "Tamir"
+    case part = "Parça"
+    case accessory = "Aksesuar"
+    // Otomobil özel
     case emission = "Egzoz Emisyon"
     case parking = "Otopark"
     case toll = "HGS/OGS"
     case fine = "Ceza"
     case wash = "Yıkama"
-    case accessory = "Aksesuar"
+    // Motosiklet özel
+    case chainSprocket = "Zincir/Dişli"
+    case equipment = "Ekipman"
+    // Genel
     case other = "Diğer"
 
     var displayName: String { rawValue }
@@ -120,6 +216,7 @@ enum ExpenseCategory: String, Codable, CaseIterable {
         case .fuel: return "fuelpump"
         case .service, .repair: return "wrench.and.screwdriver"
         case .part: return "gearshape"
+        case .oil: return "oilcan"
         case .tire: return "circle.hexagonpath"
         case .battery: return "battery.75"
         case .insurance: return "shield"
@@ -132,9 +229,30 @@ enum ExpenseCategory: String, Codable, CaseIterable {
         case .fine: return "exclamationmark.triangle"
         case .wash: return "drop"
         case .accessory: return "sparkles"
+        case .brake: return "circle.dotted.circle"
+        case .chainSprocket: return "circle.dotted.circle"
+        case .equipment: return "jacket"
         case .other: return "ellipsis.rectangle"
         }
     }
+
+    /// Belirtilen vehicleType için uygun kategorileri döndürür.
+    static func categories(for vehicleType: VehicleType?) -> [ExpenseCategory] {
+        let all = allCases.filter { $0 != .other }
+        guard let vt = vehicleType else { return all }
+        switch vt {
+        case .car:
+            return all.filter { !motorcycleOnlyCategories.contains($0) }
+        case .motorcycle:
+            return all.filter { !carOnlyCategories.contains($0) }
+        }
+    }
+
+    /// Sadece otomobile özgü kategoriler
+    static let carOnlyCategories: Set<ExpenseCategory> = [.emission, .parking, .toll, .fine, .wash]
+
+    /// Sadece motosiklete özgü kategoriler
+    static let motorcycleOnlyCategories: Set<ExpenseCategory> = [.chainSprocket, .equipment]
 }
 
 // MARK: - Document Type
@@ -150,6 +268,11 @@ enum DocumentType: String, Codable, CaseIterable {
     case warrantyDocument = "Garanti Belgesi"
     case repairDocument = "Hasar/Onarım"
     case vehiclePhoto = "Araç Fotoğrafı"
+    // Motosiklet özel
+    case equipmentInvoice = "Ekipman Faturası"
+    case helmetGearWarranty = "Kask/Ekipman Garanti Belgesi"
+    case accessoryMounting = "Aksesuar/Montaj Belgesi"
+    // Genel
     case other = "Diğer"
 
     var displayName: String { rawValue }
@@ -166,6 +289,9 @@ enum DocumentType: String, Codable, CaseIterable {
         case .warrantyDocument: return "checkmark.shield"
         case .repairDocument: return "wrench.and.screwdriver"
         case .vehiclePhoto: return "photo"
+        case .equipmentInvoice: return "bag"
+        case .helmetGearWarranty: return "checkmark.shield"
+        case .accessoryMounting: return "gearshape"
         case .other: return "folder"
         }
     }

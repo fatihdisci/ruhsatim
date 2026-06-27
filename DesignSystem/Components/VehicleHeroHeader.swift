@@ -41,8 +41,8 @@ struct VehicleHeroHeader: View {
                 endPoint: .bottomTrailing
             )
 
-            // Araç simgesi
-            Image(systemName: "car.fill")
+            // Araç / motosiklet simgesi
+            Image(systemName: vehicle.vehicleType == .motorcycle ? "bicycle" : "car.fill")
                 .font(.system(size: 56, weight: .light))
                 .foregroundColor(.white.opacity(0.7))
         }

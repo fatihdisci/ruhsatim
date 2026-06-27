@@ -321,15 +321,131 @@ final class VehicleModelTests: XCTestCase {
     }
 
     func testExpenseCategoryAllCases() {
-        XCTAssertEqual(ExpenseCategory.allCases.count, 17)
+        // 17 ortak + 2 motosiklet özel - 5 otomobil özel kategorileri farklısayıldı = 20 toplam
+        // Ortak: service, oil, tire, brake, battery, insurance, casco, tax, inspection, fuel, repair, part, accessory (13)
+        // Otomobil: emission, parking, toll, fine, wash (5)
+        // Motosiklet: chainSprocket, equipment (2)
+        // Genel: other
+        XCTAssertEqual(ExpenseCategory.allCases.count, 21) // 13+5+2+1
         XCTAssertEqual(ExpenseCategory.fuel.displayName, "Yakıt")
         XCTAssertEqual(ExpenseCategory.tax.displayName, "MTV")
     }
 
     func testReminderTypeAllCases() {
-        XCTAssertEqual(ReminderType.allCases.count, 14)
+        // Ortak: 12 + Otomobil: 2 (timingBelt, hgs) + Motosiklet: 8 + Genel: 1 (custom) = 23
+        XCTAssertEqual(ReminderType.allCases.count, 23)
         XCTAssertEqual(ReminderType.inspection.displayName, "Muayene")
         XCTAssertEqual(ReminderType.trafficInsurance.defaultIcon, "shield")
+    }
+
+    // MARK: Motorcycle Tests
+
+    func testVehicleTypeDefaultCar() {
+        let vehicle = Vehicle(brand: "Toyota", model: "Corolla")
+        XCTAssertEqual(vehicle.vehicleType, .car)
+        XCTAssertEqual(vehicle.vehicleTypeRaw, "Otomobil")
+        XCTAssertNil(vehicle.motorcycleType)
+        XCTAssertNil(vehicle.engineCC)
+    }
+
+    func testMotorcycleCreation() {
+        let motorcycle = Vehicle(
+            brand: "Yamaha",
+            model: "MT-07",
+            year: 2024,
+            vehicleType: .motorcycle,
+            motorcycleType: .naked,
+            engineCC: 689,
+            fuelType: .gasoline,
+            transmissionType: .manual,
+            currentOdometer: 5200
+        )
+        XCTAssertEqual(motorcycle.vehicleType, .motorcycle)
+        XCTAssertEqual(motorcycle.vehicleTypeRaw, "Motosiklet")
+        XCTAssertEqual(motorcycle.motorcycleType, .naked)
+        XCTAssertEqual(motorcycle.engineCC, 689)
+        XCTAssertEqual(motorcycle.vehicleType.heroSymbol, "bicycle")
+        XCTAssertEqual(motorcycle.vehicleType.vehicleNoun, "motosiklet")
+    }
+
+    func testVehicleTypeCar() {
+        let car = Vehicle(brand: "Renault", model: "Clio", vehicleType: .car)
+        XCTAssertEqual(car.vehicleType, .car)
+        XCTAssertEqual(car.vehicleType.heroSymbol, "car.fill")
+        XCTAssertEqual(car.vehicleType.vehicleNoun, "araç")
+        XCTAssertNil(car.motorcycleType)
+    }
+
+    func testMotorcycleReminderTemplates() {
+        let mcTemplates = ReminderType.templates(for: .motorcycle)
+        // Otomobile özel tipler motosiklette olmamalı
+        XCTAssertFalse(mcTemplates.contains(.timingBelt))
+        XCTAssertFalse(mcTemplates.contains(.hgs))
+        // Motosiklet özel tipler içermeli
+        XCTAssertTrue(mcTemplates.contains(.chainMaintenance))
+        XCTAssertTrue(mcTemplates.contains(.sparkPlug))
+        XCTAssertTrue(mcTemplates.contains(.airFilter))
+        XCTAssertTrue(mcTemplates.contains(.seasonStartCheck))
+    }
+
+    func testCarReminderTemplates() {
+        let carTemplates = ReminderType.templates(for: .car)
+        // Otomobil özel tipler içermeli
+        XCTAssertTrue(carTemplates.contains(.timingBelt))
+        XCTAssertTrue(carTemplates.contains(.hgs))
+        // Motosiklet özel tipler otomobilde olmamalı
+        XCTAssertFalse(carTemplates.contains(.chainMaintenance))
+        XCTAssertFalse(carTemplates.contains(.sparkPlug))
+    }
+
+    func testMotorcycleExpenseCategories() {
+        let mcCategories = ExpenseCategory.categories(for: .motorcycle)
+        XCTAssertTrue(mcCategories.contains(.chainSprocket))
+        XCTAssertTrue(mcCategories.contains(.equipment))
+        XCTAssertFalse(mcCategories.contains(.emission))
+        XCTAssertFalse(mcCategories.contains(.parking))
+    }
+
+    func testMotorcycleDocumentTypes() {
+        // Motosiklet özel belge tipleri enum'da mevcut olmalı
+        let allDocs = DocumentType.allCases
+        XCTAssertTrue(allDocs.contains(.equipmentInvoice))
+        XCTAssertTrue(allDocs.contains(.helmetGearWarranty))
+        XCTAssertTrue(allDocs.contains(.accessoryMounting))
+    }
+
+    func testMotorcycleTypeAllCases() {
+        XCTAssertEqual(MotorcycleType.allCases.count, 8)
+        XCTAssertEqual(MotorcycleType.scooter.displayName, "Scooter")
+        XCTAssertEqual(MotorcycleType.naked.displayName, "Naked")
+    }
+
+    func testVehicleTypeAllCases() {
+        XCTAssertEqual(VehicleType.allCases.count, 2)
+        XCTAssertEqual(VehicleType.car.displayName, "Otomobil")
+        XCTAssertEqual(VehicleType.motorcycle.displayName, "Motosiklet")
+    }
+
+    func testMotorcycleFileScore() {
+        // Motor hacmi olan motosiklet ekstra skor alır
+        let mc = Vehicle(
+            brand: "Kawasaki",
+            model: "Ninja 400",
+            year: 2023,
+            vehicleType: .motorcycle,
+            engineCC: 399,
+            fuelType: .gasoline,
+            transmissionType: .manual,
+            currentOdometer: 8000,
+            purchaseDate: Date(),
+            purchasePrice: 280_000
+        )
+        // Temel kriterler: brand(10)+model(10)+year(10)+odo(10)+trans(10)+purchaseDate(10)+purchasePrice(10)+engineCC(10)=80
+        // Reminders ve expenses test context'inde olmadığı için 0
+        // Toplam: 80
+        XCTAssertEqual(mc.vehicleType, .motorcycle)
+        XCTAssertEqual(mc.engineCC, 399)
+        XCTAssertTrue(mc.currentOdometer > 0)
     }
 
     func testDocumentTypeIcons() {

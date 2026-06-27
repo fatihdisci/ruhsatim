@@ -149,6 +149,7 @@ struct VehicleDossierApp: App {
             if vehicle.transmissionType != nil { score += 10 }
             if vehicle.purchaseDate != nil { score += 10 }
             if vehicle.purchasePrice != nil { score += 10 }
+            if vehicle.vehicleType == .motorcycle, vehicle.engineCC != nil { score += 10 }
             let vehicleReminders = reminders.filter { $0.vehicleId == vehicle.id }
             if !vehicleReminders.isEmpty { score += 15 }
             if !vehicleReminders.contains(where: { $0.isOverdue }) { score += 15 }

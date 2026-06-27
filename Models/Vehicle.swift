@@ -14,7 +14,10 @@ final class Vehicle {
     var brand: String = ""
     var model: String = ""
     var year: Int?
+    var vehicleTypeRaw: String = VehicleType.car.rawValue
     var bodyType: String?
+    var motorcycleTypeRaw: String?
+    var engineCC: Int?
     var fuelTypeRaw: String = FuelType.gasoline.rawValue
     var transmissionTypeRaw: String?
     var currentOdometer: Int = 0
@@ -28,6 +31,19 @@ final class Vehicle {
     var archivedAt: Date?
 
     // MARK: Computed — Enum dönüşümleri
+    var vehicleType: VehicleType {
+        get { VehicleType(rawValue: vehicleTypeRaw) ?? .car }
+        set { vehicleTypeRaw = newValue.rawValue }
+    }
+
+    var motorcycleType: MotorcycleType? {
+        get {
+            guard let raw = motorcycleTypeRaw else { return nil }
+            return MotorcycleType(rawValue: raw)
+        }
+        set { motorcycleTypeRaw = newValue?.rawValue }
+    }
+
     var fuelType: FuelType {
         get { FuelType(rawValue: fuelTypeRaw) ?? .gasoline }
         set { fuelTypeRaw = newValue.rawValue }
@@ -70,7 +86,10 @@ final class Vehicle {
         brand: String = "",
         model: String = "",
         year: Int? = nil,
+        vehicleType: VehicleType = .car,
         bodyType: String? = nil,
+        motorcycleType: MotorcycleType? = nil,
+        engineCC: Int? = nil,
         fuelType: FuelType = .gasoline,
         transmissionType: TransmissionType? = nil,
         currentOdometer: Int = 0,
@@ -89,7 +108,10 @@ final class Vehicle {
         self.brand = brand
         self.model = model
         self.year = year
+        self.vehicleTypeRaw = vehicleType.rawValue
         self.bodyType = bodyType
+        self.motorcycleTypeRaw = motorcycleType?.rawValue
+        self.engineCC = engineCC
         self.fuelTypeRaw = fuelType.rawValue
         self.transmissionTypeRaw = transmissionType?.rawValue
         self.currentOdometer = currentOdometer

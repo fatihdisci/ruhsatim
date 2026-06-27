@@ -11,6 +11,7 @@ struct VehicleEditView: View {
 
     let vehicle: Vehicle
 
+    @State private var vehicleType: VehicleType
     @State private var plate: String
     @State private var brand: String
     @State private var model: String
@@ -28,12 +29,21 @@ struct VehicleEditView: View {
     @State private var showModelPicker = false
     @State private var isCustomBrand: Bool
     @State private var isCustomModel: Bool
+    // Motorcycle
+    @State private var motorcycleType: MotorcycleType?
+    @State private var engineCCText: String
 
     @State private var validationErrors: [String] = []
     @State private var showErrors = false
 
+    private var engineCC: Int? {
+        let text = engineCCText.trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? nil : Int(text)
+    }
+
     init(vehicle: Vehicle) {
         self.vehicle = vehicle
+        _vehicleType = State(initialValue: vehicle.vehicleType)
         _plate = State(initialValue: vehicle.plate)
         _brand = State(initialValue: vehicle.brand)
         _model = State(initialValue: vehicle.model)
@@ -47,6 +57,8 @@ struct VehicleEditView: View {
         _purchaseOdometerText = State(initialValue: vehicle.purchaseOdometer.map { String($0) } ?? "")
         _purchasePriceText = State(initialValue: vehicle.purchasePrice.map { String(Int($0)) } ?? "")
         _notes = State(initialValue: vehicle.notes)
+        _motorcycleType = State(initialValue: vehicle.motorcycleType)
+        _engineCCText = State(initialValue: vehicle.engineCC.map { String($0) } ?? "")
         let catalogBrand = CarCatalogService.shared.brand(named: vehicle.brand)
         _isCustomBrand = State(initialValue: catalogBrand == nil)
         _isCustomModel = State(initialValue: catalogBrand.flatMap { CarCatalogService.shared.model(named: vehicle.model, in: $0) } == nil)

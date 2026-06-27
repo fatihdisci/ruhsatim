@@ -790,6 +790,7 @@ struct VehicleDetailView: View {
         if vehicle.transmissionType != nil { score += 10 }
         if vehicle.purchaseDate != nil { score += 10 }
         if vehicle.purchasePrice != nil { score += 10 }
+        if vehicle.vehicleType == .motorcycle, vehicle.engineCC != nil { score += 10 }
         if !reminders.isEmpty { score += 15 }
         if !activeReminders.contains(where: { $0.isOverdue }) { score += 15 }
         if !expenses.isEmpty { score += 5 }
