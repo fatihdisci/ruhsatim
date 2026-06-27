@@ -178,20 +178,25 @@ ALTER TABLE community_blocks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Profiles_are_public" ON profiles
   FOR SELECT USING (true);
 
--- Kullanıcı kendi profilini oluşturabilir
+-- Kullanıcı kendi profilini oluşturabilir (banned bile olsa — ilk profil)
 CREATE POLICY "Users_can_insert_own_profile" ON profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
 
--- Kullanıcı kendi profilini güncelleyebilir
+-- Kullanıcı kendi profilini güncelleyebilir (banned değilse)
 CREATE POLICY "Users_can_update_own_profile" ON profiles
-  FOR UPDATE USING (auth.uid() = id);
+  FOR UPDATE USING (
+    auth.uid() = id
+    AND EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_banned = false
+    )
+  );
 
 -- --------------------------------------------------------------------------
 -- 4.2 COMMUNITY POSTS — SELECT
 -- --------------------------------------------------------------------------
 
 -- Herkes silinmemiş ve gizli olmayan gönderileri görebilir
--- Admin gizli gönderileri de görebilir
+-- Admin/mod moderator gizli gönderileri de görebilir
 CREATE POLICY "Visible_non_deleted_posts" ON community_posts
   FOR SELECT USING (
     deleted_at IS NULL
@@ -202,12 +207,16 @@ CREATE POLICY "Visible_non_deleted_posts" ON community_posts
   );
 
 -- --------------------------------------------------------------------------
--- 4.3 COMMUNITY POSTS — INSERT (Pro + Admin/Moderator + Ban kontrolü)
+-- 4.3 COMMUNITY POSTS — INSERT
+-- Kural: auth.uid() mevcut, is_banned = false,
+--        (is_pro = true VEYA role IN ('admin','moderator')),
+--        VE author_id = auth.uid() (başkası adına post atılamaz)
 -- --------------------------------------------------------------------------
 
 CREATE POLICY "Pro_or_admin_can_create_posts" ON community_posts
   FOR INSERT WITH CHECK (
-    auth.uid() IN (
+    author_id = auth.uid()
+    AND auth.uid() IN (
       SELECT id FROM profiles
       WHERE is_banned = false
       AND (is_pro = true OR role IN ('admin', 'moderator'))
@@ -215,33 +224,32 @@ CREATE POLICY "Pro_or_admin_can_create_posts" ON community_posts
   );
 
 -- --------------------------------------------------------------------------
--- 4.4 COMMUNITY POSTS — UPDATE (Author edit, Admin full)
+-- 4.4 COMMUNITY POSTS — UPDATE
+-- Yazar: kendi silinmemiş postunu güncelleyebilir (banned değilse)
+-- Admin/moderator: tüm postları güncelleyebilir (hide, pin, soft-delete)
 -- --------------------------------------------------------------------------
 
--- Yazar kendi gizli olmayan gönderisini güncelleyebilir
 CREATE POLICY "Author_can_update_own_post" ON community_posts
   FOR UPDATE USING (
     auth.uid() = author_id
-    AND is_hidden = false
     AND deleted_at IS NULL
+    AND EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_banned = false
+    )
   );
 
--- Admin/moderator tüm gönderileri güncelleyebilir (hide, pin vs)
 CREATE POLICY "Admin_can_update_any_post" ON community_posts
   FOR UPDATE USING (
     auth.uid() IN (SELECT id FROM profiles WHERE role IN ('admin', 'moderator'))
   );
 
 -- --------------------------------------------------------------------------
--- 4.5 COMMUNITY POSTS — DELETE (Soft delete by author, hard by admin)
+-- 4.5 COMMUNITY POSTS — DELETE (Hard delete — sadece admin/moderator)
 -- --------------------------------------------------------------------------
 
--- Yazar kendi gönderisini soft-delete yapabilir
--- (Uygulama tarafında deleted_at = now() ve deleted_by = auth.uid() set edilir)
-CREATE POLICY "Author_can_soft_delete_own_post" ON community_posts
-  FOR UPDATE USING (
-    auth.uid() = author_id
-    AND deleted_at IS NULL
+CREATE POLICY "Admin_can_hard_delete_posts" ON community_posts
+  FOR DELETE USING (
+    auth.uid() IN (SELECT id FROM profiles WHERE role IN ('admin', 'moderator'))
   );
 
 -- --------------------------------------------------------------------------
@@ -259,11 +267,14 @@ CREATE POLICY "Visible_non_deleted_comments" ON community_comments
 
 -- --------------------------------------------------------------------------
 -- 4.7 COMMUNITY COMMENTS — INSERT
+-- Kural: auth.uid() mevcut, is_banned = false,
+--        (is_pro = true VEYA role IN ('admin','moderator'))
 -- --------------------------------------------------------------------------
 
 CREATE POLICY "Pro_or_admin_can_create_comments" ON community_comments
   FOR INSERT WITH CHECK (
-    auth.uid() IN (
+    author_id = auth.uid()
+    AND auth.uid() IN (
       SELECT id FROM profiles
       WHERE is_banned = false
       AND (is_pro = true OR role IN ('admin', 'moderator'))
@@ -272,13 +283,17 @@ CREATE POLICY "Pro_or_admin_can_create_comments" ON community_comments
 
 -- --------------------------------------------------------------------------
 -- 4.8 COMMUNITY COMMENTS — UPDATE
+-- Yazar: kendi yorumunu güncelleyebilir (banned değilse)
+-- Admin/moderator: tüm yorumları güncelleyebilir
 -- --------------------------------------------------------------------------
 
 CREATE POLICY "Author_can_update_own_comment" ON community_comments
   FOR UPDATE USING (
     auth.uid() = author_id
-    AND is_hidden = false
     AND deleted_at IS NULL
+    AND EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_banned = false
+    )
   );
 
 CREATE POLICY "Admin_can_update_any_comment" ON community_comments
@@ -287,37 +302,61 @@ CREATE POLICY "Admin_can_update_any_comment" ON community_comments
   );
 
 -- --------------------------------------------------------------------------
--- 4.9 LIKES
+-- 4.9 COMMUNITY COMMENTS — DELETE (Hard delete — sadece admin/moderator)
+-- --------------------------------------------------------------------------
+
+CREATE POLICY "Admin_can_hard_delete_comments" ON community_comments
+  FOR DELETE USING (
+    auth.uid() IN (SELECT id FROM profiles WHERE role IN ('admin', 'moderator'))
+  );
+
+-- --------------------------------------------------------------------------
+-- 4.10 LIKES — banned kullanıcı beğenemez
 -- --------------------------------------------------------------------------
 
 CREATE POLICY "Likes_are_public" ON community_post_likes
   FOR SELECT USING (true);
 
 CREATE POLICY "Users_can_like" ON community_post_likes
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_banned = false
+    )
+  );
 
 CREATE POLICY "Users_can_unlike" ON community_post_likes
   FOR DELETE USING (auth.uid() = user_id);
 
 -- --------------------------------------------------------------------------
--- 4.10 SAVES
+-- 4.11 SAVES — banned kullanıcı kaydedemez
 -- --------------------------------------------------------------------------
 
 CREATE POLICY "Saves_are_public" ON community_post_saves
   FOR SELECT USING (true);
 
 CREATE POLICY "Users_can_save" ON community_post_saves
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_banned = false
+    )
+  );
 
 CREATE POLICY "Users_can_unsave" ON community_post_saves
   FOR DELETE USING (auth.uid() = user_id);
 
 -- --------------------------------------------------------------------------
--- 4.11 REPORTS
+-- 4.12 REPORTS — banned kullanıcı bildirim yapamaz
 -- --------------------------------------------------------------------------
 
 CREATE POLICY "Users_can_create_reports" ON community_reports
-  FOR INSERT WITH CHECK (auth.uid() = reporter_id);
+  FOR INSERT WITH CHECK (
+    auth.uid() = reporter_id
+    AND EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_banned = false
+    )
+  );
 
 CREATE POLICY "Admins_can_view_reports" ON community_reports
   FOR SELECT USING (
@@ -330,14 +369,22 @@ CREATE POLICY "Admins_can_update_reports" ON community_reports
   );
 
 -- --------------------------------------------------------------------------
--- 4.12 BLOCKS
+-- 4.13 BLOCKS — banned kullanıcı engelleme yapamaz
 -- --------------------------------------------------------------------------
 
 CREATE POLICY "Users_can_view_own_blocks" ON community_blocks
-  FOR SELECT USING (auth.uid() = blocker_id);
+  FOR SELECT USING (
+    auth.uid() = blocker_id
+    OR auth.uid() IN (SELECT id FROM profiles WHERE role IN ('admin', 'moderator'))
+  );
 
 CREATE POLICY "Users_can_block" ON community_blocks
-  FOR INSERT WITH CHECK (auth.uid() = blocker_id);
+  FOR INSERT WITH CHECK (
+    auth.uid() = blocker_id
+    AND EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND is_banned = false
+    )
+  );
 
 CREATE POLICY "Users_can_unblock" ON community_blocks
   FOR DELETE USING (auth.uid() = blocker_id);
@@ -345,9 +392,13 @@ CREATE POLICY "Users_can_unblock" ON community_blocks
 -- ============================================================================
 -- TODO: Pro Entitlement Sync
 -- ============================================================================
--- Şu an `profiles.is_pro` MANUEL olarak admin tarafından güncellenir.
--- Gelecekte: RevenueCat webhook → Supabase Edge Function → UPDATE profiles SET is_pro = true/false
+-- Şu an `profiles.is_pro` MANUEL olarak admin tarafından güncellenir:
+--   UPDATE profiles SET is_pro = true WHERE id = '<user-id>';
+--
+-- Gelecekte: StoreKit 2 Transaction listener → Supabase Edge Function →
+--   UPDATE profiles SET is_pro = true/false
 -- Bu pipeline kurulana kadar Pro yetkisi manuel yönetilir. Bkz: ADMIN_SETUP.md
 --
--- Server-side RLS policy yukarıda hazır — sync pipeline kurulduğunda ek değişiklik gerekmez.
+-- Server-side RLS policy yukarıda hazır — sync pipeline kurulduğunda
+-- ek değişiklik gerekmez.
 -- ============================================================================
