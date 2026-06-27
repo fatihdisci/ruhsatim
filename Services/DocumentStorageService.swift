@@ -92,6 +92,16 @@ final class DocumentStorageService {
         }
     }
 
+    /// Tüm belge dosyalarını ve dizini temizler.
+    func deleteAllFiles() {
+        let url = documentsDirectory
+        if fileManager.fileExists(atPath: url.path) {
+            try? fileManager.removeItem(at: url)
+        }
+        // Dizini yeniden oluştur ki sonraki kayıtlar patlamasın
+        try? fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
     // MARK: - Utility
     /// Dosya boyutunu döndürür (byte).
     func fileSize(for localFileName: String) -> Int? {

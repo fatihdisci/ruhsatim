@@ -612,19 +612,17 @@ struct SettingsView: View {
                 for s in sales { modelContext.delete(s) }
             }
 
-            // 2. Local belge dosyalarını temizle
-            let docDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("VehicleDocuments")
-            try? FileManager.default.removeItem(at: docDir)
+            // 2. Local belge dosyalarını fiziksel olarak temizle
+            DocumentStorageService.shared.deleteAllFiles()
 
             // 3. Bildirimleri temizle
             UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
 
-            try? modelContext.save()
+            try modelContext.save()
 
             // 4. Topluluk profilini anonimleştir ve çıkış yap
             if communityAuth.isAuthenticated {
-                try? await communityAuth.deleteAccount()
+                try await communityAuth.deleteAccount()
             }
 
             // 5. Pro state'i sıfırla

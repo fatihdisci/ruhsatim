@@ -131,7 +131,7 @@ final class CommunityProfileService {
         let shortId = userId.uuidString.prefix(8)
         let payload: JSONObject = [
             "username": AnyJSON.string("deleted_user_\(shortId)"),
-            "display_name": AnyJSON.null,
+            "display_name": AnyJSON.string("Silinmiş Kullanıcı"),
             "avatar_url": AnyJSON.null,
             "default_vehicle_brand": AnyJSON.null,
             "default_vehicle_model": AnyJSON.null,
