@@ -623,8 +623,9 @@ struct SettingsView: View {
                 for s in sales { modelContext.delete(s) }
             }
 
-            // 2. Local belge dosyalarını fiziksel olarak temizle
+            // 2. Local belge dosyalarını ve araç fotoğraflarını fiziksel olarak temizle
             DocumentStorageService.shared.deleteAllFiles()
+            VehiclePhotoStorageService.shared.deleteAllPhotos()
 
             // 3. Bildirimleri temizle
             UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
@@ -677,6 +678,9 @@ struct SettingsView: View {
         let docDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("VehicleDocuments")
         try? FileManager.default.removeItem(at: docDir)
+
+        // Araç fotoğraflarını temizle
+        VehiclePhotoStorageService.shared.deleteAllPhotos()
 
         // Bildirimleri temizle
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()

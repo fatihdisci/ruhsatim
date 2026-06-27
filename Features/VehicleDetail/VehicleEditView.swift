@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 import UIKit
 
 // MARK: - Vehicle Edit View
@@ -36,6 +37,14 @@ struct VehicleEditView: View {
     @State private var validationErrors: [String] = []
     @State private var showErrors = false
 
+    // Fotoğraf yönetimi
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var selectedPhotoImage: UIImage?
+    @State private var showDeletePhotoConfirmation = false
+    @State private var photoError: String?
+    /// Mevcut fotoğrafı temsil eder; yoksa nil (placeholder).
+    @State private var hasExistingPhoto: Bool
+
     private var engineCC: Int? {
         let text = engineCCText.trimmingCharacters(in: .whitespaces)
         return text.isEmpty ? nil : Int(text)
@@ -62,6 +71,7 @@ struct VehicleEditView: View {
         let catalogBrand = CarCatalogService.shared.brand(named: vehicle.brand)
         _isCustomBrand = State(initialValue: catalogBrand == nil)
         _isCustomModel = State(initialValue: catalogBrand.flatMap { CarCatalogService.shared.model(named: vehicle.model, in: $0) } == nil)
+        _hasExistingPhoto = State(initialValue: vehicle.photoFileName != nil)
     }
 
     private var year: Int? { Int(yearText.trimmingCharacters(in: .whitespaces)) }
@@ -215,6 +225,77 @@ struct VehicleEditView: View {
                     Text("Notlar")
                 }
 
+                // Araç Fotoğrafı
+                Section {
+                    if let image = selectedPhotoImage {
+                        // Yeni seçilen fotoğraf önizleme
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 180)
+                            .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+
+                        Button {
+                            selectedPhotoItem = nil
+                            selectedPhotoImage = nil
+                            photoError = nil
+                        } label: {
+                            Label("Seçimi İptal Et", systemImage: "xmark.circle")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.critical)
+                        }
+                    } else if hasExistingPhoto, let fileName = vehicle.photoFileName,
+                              let existingImage = VehiclePhotoStorageService.shared.loadPhoto(fileName: fileName) {
+                        // Mevcut kayıtlı fotoğraf önizleme
+                        Image(uiImage: existingImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 180)
+                            .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+
+                        HStack(spacing: AppSpacing.md) {
+                            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                                Label("Fotoğrafı Değiştir", systemImage: "arrow.triangle.2.circlepath")
+                                    .font(AppTypography.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(AppColors.accentPrimary)
+
+                            Button(role: .destructive) {
+                                showDeletePhotoConfirmation = true
+                            } label: {
+                                Label("Fotoğrafı Sil", systemImage: "trash")
+                                    .font(AppTypography.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } else {
+                        // Fotoğraf yok — ekle butonu
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            HStack(spacing: AppSpacing.sm) {
+                                Image(systemName: "camera")
+                                    .font(.body)
+                                    .foregroundColor(AppColors.textTertiary)
+                                    .frame(width: 32, height: 32)
+                                    .background(Circle().fill(AppColors.backgroundSecondary))
+                                Text("Fotoğraf Ekle")
+                                    .font(AppTypography.secondary)
+                                    .foregroundColor(AppColors.textSecondary)
+                                Spacer()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if let error = photoError {
+                        Text(error)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.critical)
+                    }
+                } header: {
+                    Text("Araç Fotoğrafı")
+                }
+
                 // Validasyon hataları
                 if showErrors && !validationErrors.isEmpty {
                     Section {
@@ -261,6 +342,24 @@ struct VehicleEditView: View {
                         handleModelSelection(selectedModel)
                     }
                 }
+            }
+            .confirmationDialog("Fotoğraf silinsin mi?", isPresented: $showDeletePhotoConfirmation) {
+                Button("Fotoğrafı Sil", role: .destructive) {
+                    if let fileName = vehicle.photoFileName {
+                        VehiclePhotoStorageService.shared.deletePhoto(fileName: fileName)
+                    }
+                    vehicle.photoFileName = nil
+                    hasExistingPhoto = false
+                    selectedPhotoImage = nil
+                    selectedPhotoItem = nil
+                    photoError = nil
+                }
+                Button("Vazgeç", role: .cancel) {}
+            } message: {
+                Text("Bu işlem geri alınamaz. Fotoğraf kalıcı olarak silinir.")
+            }
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                if let item = newItem { loadEditPhotoItem(item) }
             }
         }
     }
@@ -364,6 +463,20 @@ struct VehicleEditView: View {
     }
 
     private func applyChanges() {
+        // Fotoğraf: yeni seçildiyse kaydet, değişmediyse dokunma
+        if let newImage = selectedPhotoImage {
+            // Eski fotoğraf varsa sil
+            if let oldFileName = vehicle.photoFileName {
+                VehiclePhotoStorageService.shared.deletePhoto(fileName: oldFileName)
+            }
+            do {
+                vehicle.photoFileName = try VehiclePhotoStorageService.shared.savePhoto(newImage)
+            } catch {
+                photoError = "Fotoğraf eklenemedi. Lütfen tekrar dene."
+                return
+            }
+        }
+
         vehicle.vehicleTypeRaw = vehicleType.rawValue
         vehicle.plate = plate.trimmingCharacters(in: .whitespaces).uppercased()
         vehicle.brand = brand.trimmingCharacters(in: .whitespaces)
@@ -387,6 +500,24 @@ struct VehicleEditView: View {
             generator.notificationOccurred(.success)
         } catch {
             validationErrors = ["Kaydedilemedi: \(error.localizedDescription)"]
+        }
+    }
+
+    // MARK: - Photo Handling
+    private func loadEditPhotoItem(_ item: PhotosPickerItem) {
+        photoError = nil
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               data.count < 20_971_520,
+               let image = UIImage(data: data) {
+                await MainActor.run {
+                    selectedPhotoImage = image
+                }
+            } else {
+                await MainActor.run {
+                    photoError = "Fotoğraf eklenemedi. Lütfen tekrar dene."
+                }
+            }
         }
     }
 }

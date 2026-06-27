@@ -79,15 +79,6 @@ struct OnboardingView: View {
                 }
                 .buttonStyle(.primary)
                 .padding(.horizontal, AppSpacing.xxl)
-
-                // Page dots indicator
-                HStack(spacing: AppSpacing.xs) {
-                    ForEach(0..<pages.count, id: \.self) { i in
-                        Circle()
-                            .fill(i == currentPage ? AppColors.accentPrimary : AppColors.border)
-                            .frame(width: 8, height: 8)
-                    }
-                }
                 .padding(.bottom, AppSpacing.lg)
             }
         }

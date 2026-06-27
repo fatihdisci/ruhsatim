@@ -26,6 +26,7 @@ struct GarageView: View {
     @State private var showAddReminder = false
     @State private var showSaleFile = false
     @State private var paywallFeature: PaywallView.PaywallFeature = .secondVehicle
+    @State private var activeVehicleIndex = 0
 
     private var activeVehicles: [Vehicle] {
         vehicles.filter { $0.archivedAt == nil }
@@ -35,8 +36,11 @@ struct GarageView: View {
         vehicles.filter { $0.archivedAt != nil }
     }
 
-    private var primaryVehicle: Vehicle? {
-        activeVehicles.first
+    private var currentVehicle: Vehicle? {
+        guard !activeVehicles.isEmpty, activeVehicleIndex < activeVehicles.count else {
+            return nil
+        }
+        return activeVehicles[activeVehicleIndex]
     }
 
     var body: some View {
@@ -92,19 +96,19 @@ struct GarageView: View {
                 VehicleFormView()
             }
             .sheet(isPresented: $showAddExpense) {
-                ExpenseFormView(preselectedVehicleId: primaryVehicle?.id)
+                ExpenseFormView(preselectedVehicleId: currentVehicle?.id)
             }
             .sheet(isPresented: $showAddService) {
-                ServiceRecordFormView(preselectedVehicleId: primaryVehicle?.id)
+                ServiceRecordFormView(preselectedVehicleId: currentVehicle?.id)
             }
             .sheet(isPresented: $showAddDocument) {
-                DocumentFormView(preselectedVehicleId: primaryVehicle?.id)
+                DocumentFormView(preselectedVehicleId: currentVehicle?.id)
             }
             .sheet(isPresented: $showAddReminder) {
-                ReminderFormView(preselectedVehicleId: primaryVehicle?.id)
+                ReminderFormView(preselectedVehicleId: currentVehicle?.id)
             }
             .sheet(isPresented: $showSaleFile) {
-                if let vehicle = primaryVehicle {
+                if let vehicle = currentVehicle {
                     SaleFileView(vehicle: vehicle)
                 }
             }
@@ -149,16 +153,55 @@ struct GarageView: View {
     private var garageContent: some View {
         ScrollView {
             VStack(spacing: AppSpacing.lg) {
-                // 1. Hero Vehicle Card
-                if let vehicle = primaryVehicle {
-                    heroSection(vehicle: vehicle)
+                // 1. Hero Vehicle Card(s)
+                if activeVehicles.count > 1 {
+                    TabView(selection: $activeVehicleIndex) {
+                        ForEach(Array(activeVehicles.enumerated()), id: \.offset) { index, vehicle in
+                            NavigationLink {
+                                VehicleDetailView(vehicle: vehicle)
+                            } label: {
+                                heroCardContent(vehicle: vehicle)
+                            }
+                            .buttonStyle(PlainCardButtonStyle())
+                            .tag(index)
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: 370)
+                    .padding(.horizontal, AppSpacing.screenMarginH)
+
+                    // Subtle page indicator
+                    HStack(spacing: 6) {
+                        ForEach(0..<activeVehicles.count, id: \.self) { i in
+                            Circle()
+                                .fill(i == activeVehicleIndex ? AppColors.accentPrimary : AppColors.border)
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                } else if let vehicle = activeVehicles.first {
+                    NavigationLink {
+                        VehicleDetailView(vehicle: vehicle)
+                    } label: {
+                        heroCardContent(vehicle: vehicle)
+                    }
+                    .buttonStyle(PlainCardButtonStyle())
+                    .padding(.horizontal, AppSpacing.screenMarginH)
                 }
 
-                // 2. Quick Action Rail
-                quickActionRail
+                // 2. Quick Actions — Hızlı Oluştur
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    SectionHeader(title: "Hızlı Oluştur")
+
+                    Text("Seçili araç için hızlıca kayıt oluştur.")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                        .padding(.horizontal, AppSpacing.screenMarginH)
+
+                    quickActionRail
+                }
 
                 // 3. Dosyanı Tamamla Checklist (eksik kriter varsa göster)
-                if let vehicle = primaryVehicle {
+                if let vehicle = currentVehicle {
                     let checklistItemsDone = checklistDoneCount(vehicle)
                     if checklistItemsDone < 5 {
                         DosyaniTamamlaChecklist(
@@ -172,7 +215,7 @@ struct GarageView: View {
                 }
 
                 // 4. Dossier Completeness
-                if let vehicle = primaryVehicle {
+                if let vehicle = currentVehicle {
                     DossierCompletenessCard(
                         score: computeFileScore(for: vehicle),
                         criteriaMet: criteriaMet(for: vehicle),
@@ -182,16 +225,11 @@ struct GarageView: View {
                 }
 
                 // 5. Recent activity preview
-                if let vehicle = primaryVehicle {
+                if let vehicle = currentVehicle {
                     recentActivitySection(vehicle: vehicle)
                 }
 
-                // 5. Secondary vehicles
-                if activeVehicles.count > 1 {
-                    secondaryVehiclesSection
-                }
-
-                // 6. Archived vehicles
+                // 5. Archived vehicles
                 if !archivedVehicles.isEmpty {
                     archivedSection
                 }
@@ -200,16 +238,29 @@ struct GarageView: View {
             }
             .padding(.vertical, AppSpacing.md)
         }
+        .onChange(of: activeVehicles.count) { _, newCount in
+            guard newCount > 0 else { return }
+            if activeVehicleIndex >= newCount {
+                activeVehicleIndex = newCount - 1
+            }
+        }
     }
 
-    // MARK: - Hero Section
-    private func heroSection(vehicle: Vehicle) -> some View {
-        NavigationLink {
-            VehicleDetailView(vehicle: vehicle)
-        } label: {
-            VStack(spacing: 0) {
-                // Photo placeholder
-                ZStack {
+    // MARK: - Hero Card Content
+    /// Sadece kart içeriği; NavigationLink ve padding ayrı ayrı sarılır
+    /// (tek araçta doğrudan, çoklu araçta TabView içinde).
+    private func heroCardContent(vehicle: Vehicle) -> some View {
+        VStack(spacing: 0) {
+            // Photo / placeholder
+            ZStack {
+                if let photoFileName = vehicle.photoFileName,
+                   let image = VehiclePhotoStorageService.shared.loadPhoto(fileName: photoFileName) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(height: 140)
+                        .clipped()
+                } else {
                     LinearGradient(
                         colors: [
                             AppColors.vehicle,
@@ -224,89 +275,87 @@ struct GarageView: View {
                         .font(.system(size: 48, weight: .light))
                         .foregroundColor(.white.opacity(0.7))
                 }
-                .frame(height: 140)
-                .clipShape(
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: AppRadius.heroCard,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: 0,
-                        topTrailingRadius: AppRadius.heroCard
-                    )
+            }
+            .frame(height: 140)
+            .clipShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: AppRadius.heroCard,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: AppRadius.heroCard
                 )
+            )
 
-                // Info section
-                VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                    // Plate capsule
-                    Text(vehicle.plate.isEmpty ? "—" : vehicle.plate)
-                        .plateTextStyle()
+            // Info section
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                // Plate capsule
+                Text(vehicle.plate.isEmpty ? "—" : vehicle.plate)
+                    .plateTextStyle()
+                    .foregroundColor(AppColors.textPrimary)
+
+                // Brand + Model + Year
+                HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
+                    Text(vehicle.fullName)
+                        .font(AppTypography.sectionTitle)
                         .foregroundColor(AppColors.textPrimary)
 
-                    // Brand + Model + Year
-                    HStack(alignment: .firstTextBaseline, spacing: AppSpacing.xs) {
-                        Text(vehicle.fullName)
-                            .font(AppTypography.sectionTitle)
-                            .foregroundColor(AppColors.textPrimary)
+                    if let year = vehicle.year {
+                        Text("·")
+                            .foregroundColor(AppColors.textTertiary)
+                        Text(String(year))
+                            .font(AppTypography.cardTitle)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                }
 
-                        if let year = vehicle.year {
-                            Text("·")
-                                .foregroundColor(AppColors.textTertiary)
-                            Text(String(year))
-                                .font(AppTypography.cardTitle)
-                                .foregroundColor(AppColors.textSecondary)
+                // Info badges
+                HStack(spacing: AppSpacing.sm) {
+                    infoBadge(icon: "gauge.with.needle", text: vehicle.odometerDisplay)
+                    infoBadge(icon: "fuelpump", text: vehicle.fuelType.displayName)
+                    if let trans = vehicle.transmissionType {
+                        infoBadge(
+                            icon: trans == .automatic ? "a.circle" : "m.circle",
+                            text: trans.displayName
+                        )
+                    }
+                }
+
+                // Nickname + upcoming
+                HStack {
+                    if !vehicle.nickname.isEmpty {
+                        HStack(spacing: AppSpacing.xxs) {
+                            Image(systemName: "heart.fill")
+                                .font(.caption2)
+                                .foregroundColor(AppColors.accentPrimary)
+                            Text(vehicle.nickname)
+                                .font(AppTypography.secondary)
+                                .foregroundColor(AppColors.accentPrimary)
                         }
                     }
 
-                    // Info badges
-                    HStack(spacing: AppSpacing.sm) {
-                        infoBadge(icon: "gauge.with.needle", text: vehicle.odometerDisplay)
-                        infoBadge(icon: "fuelpump", text: vehicle.fuelType.displayName)
-                        if let trans = vehicle.transmissionType {
-                            infoBadge(
-                                icon: trans == .automatic ? "a.circle" : "m.circle",
-                                text: trans.displayName
-                            )
-                        }
-                    }
+                    Spacer()
 
-                    // Nickname + upcoming
-                    HStack {
-                        if !vehicle.nickname.isEmpty {
-                            HStack(spacing: AppSpacing.xxs) {
-                                Image(systemName: "heart.fill")
-                                    .font(.caption2)
-                                    .foregroundColor(AppColors.accentPrimary)
-                                Text(vehicle.nickname)
-                                    .font(AppTypography.secondary)
-                                    .foregroundColor(AppColors.accentPrimary)
-                            }
-                        }
-
-                        Spacer()
-
-                        if let reminder = upcomingReminder(for: vehicle) {
-                            HStack(spacing: 4) {
-                                Image(systemName: reminder.isOverdue ? "exclamationmark.triangle.fill" : "bell.fill")
-                                    .font(.caption2)
-                                    .foregroundColor(reminder.isOverdue ? AppColors.critical : AppColors.warning)
-                                Text(reminder.title)
-                                    .font(AppTypography.captionMedium)
-                                    .foregroundColor(reminder.isOverdue ? AppColors.critical : AppColors.warning)
-                                    .lineLimit(1)
-                            }
+                    if let reminder = upcomingReminder(for: vehicle) {
+                        HStack(spacing: 4) {
+                            Image(systemName: reminder.isOverdue ? "exclamationmark.triangle.fill" : "bell.fill")
+                                .font(.caption2)
+                                .foregroundColor(reminder.isOverdue ? AppColors.critical : AppColors.warning)
+                            Text(reminder.title)
+                                .font(AppTypography.captionMedium)
+                                .foregroundColor(reminder.isOverdue ? AppColors.critical : AppColors.warning)
+                                .lineLimit(1)
                         }
                     }
                 }
-                .padding(AppSpacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(
-                RoundedRectangle(cornerRadius: AppRadius.heroCard)
-                    .fill(Color.appSurface)
-            )
-            .elevatedShadow()
+            .padding(AppSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(PlainCardButtonStyle())
-        .padding(.horizontal, AppSpacing.screenMarginH)
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.heroCard)
+                .fill(Color.appSurface)
+        )
+        .elevatedShadow()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(vehicle.plate), \(vehicle.fullName), \(vehicle.odometerDisplay)")
     }
@@ -330,13 +379,13 @@ struct GarageView: View {
     // MARK: - Quick Action Rail
     private var quickActionRail: some View {
         QuickActionRail(actions: [
-            .init(icon: "turkishlirasign.circle", label: "Masraf", color: AppColors.accentPrimary) {
+            .init(icon: "turkishlirasign.circle", label: "Masraf Ekle", color: AppColors.accentPrimary) {
                 showAddExpense = true
             },
-            .init(icon: "wrench.and.screwdriver", label: "Bakım", color: AppColors.warning) {
+            .init(icon: "wrench.and.screwdriver", label: "Bakım Ekle", color: AppColors.warning) {
                 showAddService = true
             },
-            .init(icon: "doc.text.viewfinder", label: "Belge", color: AppColors.document) {
+            .init(icon: "doc.text.viewfinder", label: "Belge Ekle", color: AppColors.document) {
                 if paywallService.canAddDocument(currentCount: allDocumentsCount) {
                     showAddDocument = true
                 } else {
@@ -344,10 +393,10 @@ struct GarageView: View {
                     showPaywall = true
                 }
             },
-            .init(icon: "bell.badge", label: "Hatırlatıcı", color: AppColors.vehicle) {
+            .init(icon: "bell.badge", label: "Hatırlatıcı Ekle", color: AppColors.vehicle) {
                 showAddReminder = true
             },
-            .init(icon: "doc.richtext", label: "Satış", color: AppColors.success) {
+            .init(icon: "doc.richtext", label: "Satış Dosyası", color: AppColors.success) {
                 if paywallService.canCreateSaleFile() {
                     showSaleFile = true
                 } else {
@@ -413,52 +462,6 @@ struct GarageView: View {
                 .padding(.horizontal, AppSpacing.screenMarginH)
             }
         )
-    }
-
-    // MARK: - Secondary Vehicles
-    private var secondaryVehiclesSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            SectionHeader(title: "Diğer Araçlar")
-
-            ForEach(activeVehicles.dropFirst()) { vehicle in
-                NavigationLink {
-                    VehicleDetailView(vehicle: vehicle)
-                } label: {
-                    HStack(spacing: AppSpacing.sm) {
-                        ZStack {
-                            Circle()
-                                .fill(AppColors.vehicle.opacity(0.1))
-                                .frame(width: 40, height: 40)
-                            Image(systemName: "car")
-                                .font(.subheadline)
-                                .foregroundColor(AppColors.vehicle)
-                        }
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(vehicle.plate.isEmpty ? vehicle.fullName : vehicle.plate)
-                                .font(AppTypography.bodyMedium)
-                                .foregroundColor(AppColors.textPrimary)
-                            Text(vehicle.fullName)
-                                .font(AppTypography.caption)
-                                .foregroundColor(AppColors.textSecondary)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(AppColors.textTertiary)
-                    }
-                    .padding(AppSpacing.md)
-                    .background(
-                        RoundedRectangle(cornerRadius: AppRadius.medium)
-                            .fill(Color.appSurface)
-                    )
-                }
-                .buttonStyle(PlainCardButtonStyle())
-                .padding(.horizontal, AppSpacing.screenMarginH)
-            }
-        }
     }
 
     // MARK: - Archived Section

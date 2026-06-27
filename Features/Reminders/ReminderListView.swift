@@ -192,10 +192,7 @@ struct ReminderListView: View {
                 NavigationLink {
                     ReminderDetailView(
                         reminder: reminder,
-                        vehicle: vehicleFor(reminder),
-                        onCompleteWithRecord: { completedReminder, action in
-                            // Tamamlandıktan sonra Geçmiş'e yönlendirme caller tarafından yönetilir
-                        }
+                        vehicle: vehicleFor(reminder)
                     )
                 } label: {
                     ReminderRow(reminder: reminder, vehicle: vehicleFor(reminder))

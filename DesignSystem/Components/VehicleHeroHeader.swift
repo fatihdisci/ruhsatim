@@ -30,21 +30,30 @@ struct VehicleHeroHeader: View {
     // MARK: - Photo Area
     private var photoArea: some View {
         ZStack {
-            // Placeholder gradyan (tasarım anayasası izinli kullanım)
-            LinearGradient(
-                colors: [
-                    AppColors.vehicle,
-                    AppColors.vehicle.opacity(0.6),
-                    AppColors.accentPrimary.opacity(0.3)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            if let photoFileName = vehicle.photoFileName,
+               let image = VehiclePhotoStorageService.shared.loadPhoto(fileName: photoFileName) {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(height: 180)
+                    .clipped()
+            } else {
+                // Placeholder gradyan (tasarım anayasası izinli kullanım)
+                LinearGradient(
+                    colors: [
+                        AppColors.vehicle,
+                        AppColors.vehicle.opacity(0.6),
+                        AppColors.accentPrimary.opacity(0.3)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
 
-            // Araç / motosiklet simgesi
-            Image(systemName: vehicle.vehicleType.heroSymbol)
-                .font(.system(size: 56, weight: .light))
-                .foregroundColor(.white.opacity(0.7))
+                // Araç / motosiklet simgesi
+                Image(systemName: vehicle.vehicleType.heroSymbol)
+                    .font(.system(size: 56, weight: .light))
+                    .foregroundColor(.white.opacity(0.7))
+            }
         }
         .frame(height: 180)
         .clipShape(

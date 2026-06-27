@@ -10,23 +10,12 @@ struct ReminderDetailView: View {
 
     let reminder: Reminder
     let vehicle: Vehicle?
-    let onCompleteWithRecord: ((Reminder, CompletionAction) -> Void)?
 
     @State private var showEditSheet = false
     @State private var showDeleteConfirmation = false
     @State private var showCompletionOptions = false
     @State private var showSnoozeSheet = false
     @State private var snoozeDays = 7
-    @State private var showServiceRecordSheet = false
-    @State private var showExpenseSheet = false
-    @State private var showDocumentSheet = false
-
-    enum CompletionAction {
-        case justComplete
-        case createServiceRecord
-        case addExpense
-        case addDocument
-    }
 
     var body: some View {
         ScrollView {
@@ -66,31 +55,18 @@ struct ReminderDetailView: View {
         .sheet(isPresented: $showEditSheet) {
             ReminderFormView(existingReminder: reminder)
         }
-        .sheet(isPresented: $showServiceRecordSheet) {
-            ServiceRecordFormView(preselectedVehicleId: reminder.vehicleId)
-        }
-        .sheet(isPresented: $showExpenseSheet) {
-            ExpenseFormView(preselectedVehicleId: reminder.vehicleId)
-        }
-        .sheet(isPresented: $showDocumentSheet) {
-            DocumentFormView(preselectedVehicleId: reminder.vehicleId)
-        }
         .confirmationDialog("Yapılacak Silinsin mi?", isPresented: $showDeleteConfirmation) {
             Button("Sil", role: .destructive) { deleteReminder() }
             Button("Vazgeç", role: .cancel) {}
         } message: {
             Text("Bu yapılacak kalıcı olarak silinir. Bildirimler iptal edilir.")
         }
-        .confirmationDialog("Bu işlemi nasıl tamamlamak istersin?", isPresented: $showCompletionOptions) {
-            Button("Sadece Tamamlandı İşaretle") { complete(justComplete: true) }
-            if isServiceType {
-                Button("Bakım Kaydı Oluştur") { completeAndRecord(.createServiceRecord) }
-            }
-            Button("Masraf Ekle") { completeAndRecord(.addExpense) }
-            Button("Belge Ekle") { completeAndRecord(.addDocument) }
+        .confirmationDialog("Yapılacak tamamlandı mı?", isPresented: $showCompletionOptions) {
+            Button("Tamamlandı ve Geçmiş'e Ekle") { complete(addToHistory: true) }
+            Button("Sadece Tamamlandı İşaretle") { complete(addToHistory: false) }
             Button("Vazgeç", role: .cancel) {}
         } message: {
-            Text("Tamamlanan işlemi Geçmiş'e ekleyerek aracının dosyasını daha eksiksiz tutabilirsin.")
+            Text("Bu işi tamamlandı olarak işaretleyip Geçmiş'e ekleyebilirsin.")
         }
         .sheet(isPresented: $showSnoozeSheet) {
             snoozeSheet
@@ -114,7 +90,7 @@ struct ReminderDetailView: View {
                 .pickerStyle(.wheel)
                 .frame(height: 150)
 
-                Text("Yeni tarih: \(Calendar.current.date(byAdding: .day, value: snoozeDays, to: Date())?.formatted(date: .long, time: .omitted) ?? "")")
+                Text("Yeni tarih: \(snoozePreviewDate)")
                     .font(AppTypography.secondary)
                     .foregroundColor(AppColors.textSecondary)
 
@@ -285,8 +261,25 @@ struct ReminderDetailView: View {
     }
 
     // MARK: - Snooze
+
+    /// Erteleme için baz alınacak tarih:
+    /// - Gelecekteki dueDate → dueDate'ten itibaren ertele
+    /// - Bugün/geçmiş dueDate → bugünden itibaren ertele
+    /// - dueDate yok → bugünden itibaren ertele
+    private var snoozeBaseDate: Date {
+        let today = Calendar.current.startOfDay(for: Date())
+        guard let dueDate = reminder.dueDate else { return today }
+        let dueDay = Calendar.current.startOfDay(for: dueDate)
+        return dueDay > today ? dueDay : today
+    }
+
+    private var snoozePreviewDate: String {
+        let preview = Calendar.current.date(byAdding: .day, value: snoozeDays, to: snoozeBaseDate) ?? Date()
+        return preview.formatted(date: .long, time: .omitted)
+    }
+
     private func snoozeReminder() {
-        let newDate = Calendar.current.date(byAdding: .day, value: snoozeDays, to: Date()) ?? Date()
+        let newDate = Calendar.current.date(byAdding: .day, value: snoozeDays, to: snoozeBaseDate) ?? Date()
         reminder.dueDate = newDate
         NotificationService.shared.cancelReminder(reminder)
         try? modelContext.save()
@@ -299,11 +292,6 @@ struct ReminderDetailView: View {
     // MARK: - Helpers
     private var isCompleted: Bool {
         reminder.statusRaw == ReminderStatus.completed.rawValue
-    }
-
-    private var isServiceType: Bool {
-        let serviceTypes: Set<ReminderType> = [.periodicService, .oilChange, .tire, .battery, .brakes, .timingBelt, .chainMaintenance, .chainSprocketSet, .sparkPlug, .airFilter, .suspensionCheck]
-        return serviceTypes.contains(reminder.type)
     }
 
     private var statusColor: Color {
@@ -327,37 +315,21 @@ struct ReminderDetailView: View {
     }
 
     // MARK: - Actions
-    private func complete(justComplete: Bool) {
-        completeReminder(reminder)
-        dismiss()
-    }
 
-    private func completeAndRecord(_ action: CompletionAction) {
-        completeReminder(reminder)
-        switch action {
-        case .createServiceRecord:
-            showServiceRecordSheet = true
-        case .addExpense:
-            showExpenseSheet = true
-        case .addDocument:
-            showDocumentSheet = true
-        case .justComplete:
-            break
-        }
-    }
-
-    private func completeReminder(_ reminder: Reminder) {
+    /// addToHistory true ise completedAt set edilir; HistoryView bu kayıtları timeline'da gösterir.
+    /// addToHistory false ise sadece status completed olur.
+    private func complete(addToHistory: Bool) {
         let impact = UINotificationFeedbackGenerator()
         impact.notificationOccurred(.success)
         let rule = reminder.repeatRule
         let oldDueDate = reminder.dueDate
         let oldDueOdometer = reminder.dueOdometer
         reminder.statusRaw = ReminderStatus.completed.rawValue
-        reminder.completedAt = Date()
+        reminder.completedAt = addToHistory ? Date() : nil
         try? modelContext.save()
         NotificationService.shared.cancelReminder(reminder)
 
-        if rule != .none, let baseDate = oldDueDate ?? reminder.completedAt {
+        if rule != .none, let baseDate = oldDueDate ?? (addToHistory ? reminder.completedAt : Date()) {
             if let nextDate = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: rule) {
                 let next = Reminder(
                     vehicleId: reminder.vehicleId, type: reminder.type,
@@ -370,6 +342,7 @@ struct ReminderDetailView: View {
                 Task { await NotificationService.shared.scheduleReminder(next) }
             }
         }
+        dismiss()
     }
 
     private func deleteReminder() {
@@ -384,8 +357,7 @@ struct ReminderDetailView: View {
     NavigationStack {
         ReminderDetailView(
             reminder: Reminder(vehicleId: UUID(), type: .inspection, title: "Muayene", dueDate: Date().addingTimeInterval(86400 * 5)),
-            vehicle: nil,
-            onCompleteWithRecord: nil
+            vehicle: nil
         )
     }
 }

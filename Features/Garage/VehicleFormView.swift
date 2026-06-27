@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 import UIKit
 
 // MARK: - Vehicle Form View
@@ -27,7 +28,9 @@ struct VehicleFormView: View {
 
     // MARK: Optional fields
     @State private var nickname = ""
-    @State private var showPhotoPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var selectedPhotoImage: UIImage?
+    @State private var photoError: String?
     @State private var showBrandPicker = false
     @State private var showModelPicker = false
     @State private var isCustomBrand = false
@@ -104,6 +107,9 @@ struct VehicleFormView: View {
                         handleModelSelection(selectedModel)
                     }
                 }
+            }
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                if let item = newItem { loadPhotoItem(item) }
             }
         }
     }
@@ -258,30 +264,56 @@ struct VehicleFormView: View {
         Section {
             formField(icon: "heart", placeholder: "Takma ad (isteğe bağlı)", text: $nickname)
 
-            // Foto placeholder
-            Button {
-                showPhotoPicker = true
-            } label: {
-                HStack(spacing: AppSpacing.sm) {
-                    Image(systemName: "camera")
-                        .font(.body)
-                        .foregroundColor(AppColors.textTertiary)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(AppColors.backgroundSecondary)
-                        )
-                    Text("Araç fotoğrafı ekle (isteğe bağlı)")
-                        .font(AppTypography.secondary)
-                        .foregroundColor(AppColors.textSecondary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(AppColors.textTertiary)
+            // Araç fotoğrafı
+            VStack(spacing: AppSpacing.sm) {
+                if let image = selectedPhotoImage {
+                    // Seçili fotoğraf önizleme
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(height: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: AppRadius.medium))
+
+                    Button {
+                        selectedPhotoItem = nil
+                        selectedPhotoImage = nil
+                        photoError = nil
+                    } label: {
+                        Label("Fotoğrafı Kaldır", systemImage: "xmark.circle")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.critical)
+                    }
+                }
+
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    HStack(spacing: AppSpacing.sm) {
+                        Image(systemName: "camera")
+                            .font(.body)
+                            .foregroundColor(AppColors.textTertiary)
+                            .frame(width: 32, height: 32)
+                            .background(
+                                Circle()
+                                    .fill(AppColors.backgroundSecondary)
+                            )
+                        Text(selectedPhotoImage == nil
+                             ? "Araç fotoğrafı ekle (isteğe bağlı)"
+                             : "Fotoğrafı Değiştir")
+                            .font(AppTypography.secondary)
+                            .foregroundColor(AppColors.textSecondary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(AppColors.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                if let error = photoError {
+                    Text(error)
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.critical)
                 }
             }
-            .buttonStyle(.plain)
-            .disabled(true) // MVP: Fotoğraf daha sonra eklenecek
         } header: {
             Text("İsteğe Bağlı")
         }
@@ -507,6 +539,17 @@ struct VehicleFormView: View {
     }
 
     private func performSave() {
+        // Fotoğraf kaydet
+        var savedPhotoFileName: String?
+        if let image = selectedPhotoImage {
+            do {
+                savedPhotoFileName = try VehiclePhotoStorageService.shared.savePhoto(image)
+            } catch {
+                photoError = "Fotoğraf eklenemedi. Lütfen tekrar dene."
+                return
+            }
+        }
+
         let vehicle = Vehicle(
             nickname: nickname.trimmingCharacters(in: .whitespaces),
             plate: plate.trimmingCharacters(in: .whitespaces).uppercased(),
@@ -520,7 +563,8 @@ struct VehicleFormView: View {
             transmissionType: transmissionType,
             currentOdometer: odometer ?? 0,
             usageType: usageType,
-            notes: ""
+            notes: "",
+            photoFileName: savedPhotoFileName
         )
         modelContext.insert(vehicle)
 
@@ -585,6 +629,24 @@ struct VehicleFormView: View {
             )
             modelContext.insert(r)
             Task { await NotificationService.shared.scheduleReminder(r) }
+        }
+    }
+
+    // MARK: - Photo Handling
+    private func loadPhotoItem(_ item: PhotosPickerItem) {
+        photoError = nil
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               data.count < 20_971_520,
+               let image = UIImage(data: data) {
+                await MainActor.run {
+                    selectedPhotoImage = image
+                }
+            } else {
+                await MainActor.run {
+                    photoError = "Fotoğraf eklenemedi. Lütfen tekrar dene."
+                }
+            }
         }
     }
 }

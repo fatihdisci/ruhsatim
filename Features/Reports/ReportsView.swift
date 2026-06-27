@@ -326,6 +326,7 @@ struct ReportsView: View {
                 Text(currencyFormat(item.total))
                     .font(AppTypography.bodyMedium)
                     .foregroundColor(AppColors.textPrimary)
+                    .monospacedDigit()
             }
 
             GeometryReader { geo in
@@ -402,6 +403,9 @@ struct ReportsView: View {
                 Text(expense.amountCompactDisplay)
                     .font(AppTypography.bodyMedium)
                     .foregroundColor(AppColors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .monospacedDigit()
                 Text(expense.dateDisplay)
                     .font(AppTypography.caption)
                     .foregroundColor(AppColors.textTertiary)

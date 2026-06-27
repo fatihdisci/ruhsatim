@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // MARK: - Community Create/Edit Post View
 // Gönderi oluşturma ve düzenleme formu. Pro gate ile korunur.
@@ -6,6 +7,7 @@ import SwiftUI
 struct CommunityCreatePostView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var communityAuth: CommunityAuthService
+    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
 
     var editingPost: CommunityPost? = nil
 
@@ -13,10 +15,8 @@ struct CommunityCreatePostView: View {
     @State private var bodyText = ""
     @State private var postType: PostType?
     @State private var selectedTags: Set<String> = []
-    @State private var vehicleBrand: String?
-    @State private var vehicleModel: String?
-    @State private var vehicleYear: Int?
     @State private var showVehicle = false
+    @State private var selectedPostVehicleId: UUID?
     @State private var validationErrors: [String] = []
     @State private var isSubmitting = false
     @State private var submitError: String?
@@ -131,20 +131,34 @@ struct CommunityCreatePostView: View {
                     Text("Etiketler (en az 1)")
                 }
 
-                // Vehicle info
+                // Vehicle info — kayıtlı araçlardan seçim
                 Section {
                     Toggle("Aracımı gönderide göster", isOn: $showVehicle)
                     if showVehicle {
-                        TextField("Marka", text: Binding(
-                            get: { vehicleBrand ?? "" },
-                            set: { vehicleBrand = $0.isEmpty ? nil : $0 }
-                        ))
-                        TextField("Model", text: Binding(
-                            get: { vehicleModel ?? "" },
-                            set: { vehicleModel = $0.isEmpty ? nil : $0 }
-                        ))
-                        TextField("Yıl", value: $vehicleYear, format: .number.grouping(.never))
-                            .keyboardType(.numberPad)
+                        if vehicles.isEmpty {
+                            HStack(spacing: AppSpacing.sm) {
+                                Image(systemName: "car")
+                                    .font(.body)
+                                    .foregroundColor(AppColors.textTertiary)
+                                    .frame(width: 24)
+                                Text("Henüz araç eklenmemiş")
+                                    .font(AppTypography.secondary)
+                                    .foregroundColor(AppColors.textTertiary)
+                            }
+                            Text("Araç etiketi göstermek için önce Garaj'dan araç ekle.")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                        } else {
+                            Picker("Araç", selection: $selectedPostVehicleId) {
+                                Text("Araç seç").tag(nil as UUID?)
+                                ForEach(vehicles) { vehicle in
+                                    Text(postVehicleLabel(for: vehicle))
+                                        .tag(vehicle.id as UUID?)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .tint(AppColors.accentPrimary)
+                        }
                     }
                 } header: {
                     Text("Araç Bilgisi (isteğe bağlı)")
@@ -185,18 +199,26 @@ struct CommunityCreatePostView: View {
                     bodyText = post.body
                     postType = post.postType
                     selectedTags = Set(post.tags)
-                    vehicleBrand = post.vehicleBrand
-                    vehicleModel = post.vehicleModel
-                    vehicleYear = post.vehicleYear
                     showVehicle = post.vehicleBrand != nil
+                    // Düzenlemede mevcut post'un vehicle bilgisini koru
+                    // (selectedPostVehicleId set edilmez — mevcut değerler submit'te kullanılır)
                 } else if let profile = communityAuth.profile, profile.showVehicleOnPosts {
-                    vehicleBrand = profile.defaultVehicleBrand
-                    vehicleModel = profile.defaultVehicleModel
-                    vehicleYear = profile.defaultVehicleYear
                     showVehicle = profile.showVehicleOnPosts
+                    if let uuidString = UserDefaults.standard.string(forKey: "community_selected_vehicle_id"),
+                       let uuid = UUID(uuidString: uuidString),
+                       vehicles.contains(where: { $0.id == uuid }) {
+                        selectedPostVehicleId = uuid
+                    }
                 }
             }
         }
+    }
+
+    /// Picker'da gösterilecek güvenli araç etiketi (plaka içermez).
+    private func postVehicleLabel(for vehicle: Vehicle) -> String {
+        var parts = [vehicle.brand, vehicle.model]
+        if let year = vehicle.year { parts.append(String(year)) }
+        return parts.filter { !$0.isEmpty }.joined(separator: " ")
     }
 
     private func submit() {
@@ -218,6 +240,9 @@ struct CommunityCreatePostView: View {
 
         Task {
             do {
+                // Seçili araçtan marka/model/yıl türet
+                let selectedVehicle = selectedPostVehicleId.flatMap { id in vehicles.first { $0.id == id } }
+
                 if let existing = editingPost {
                     try await CommunityService.shared.updatePost(
                         id: existing.id,
@@ -225,9 +250,9 @@ struct CommunityCreatePostView: View {
                         body: bodyText.trimmingCharacters(in: .whitespacesAndNewlines),
                         postType: postType!,
                         tags: Array(selectedTags),
-                        vehicleBrand: showVehicle ? vehicleBrand : nil,
-                        vehicleModel: showVehicle ? vehicleModel : nil,
-                        vehicleYear: showVehicle ? vehicleYear : nil
+                        vehicleBrand: showVehicle ? (selectedVehicle?.brand ?? existing.vehicleBrand) : nil,
+                        vehicleModel: showVehicle ? (selectedVehicle?.model ?? existing.vehicleModel) : nil,
+                        vehicleYear: showVehicle ? (selectedVehicle?.year ?? existing.vehicleYear) : nil
                     )
                 } else {
                     _ = try await CommunityService.shared.createPost(
@@ -235,9 +260,9 @@ struct CommunityCreatePostView: View {
                         body: bodyText.trimmingCharacters(in: .whitespacesAndNewlines),
                         postType: postType!,
                         tags: Array(selectedTags),
-                        vehicleBrand: showVehicle ? vehicleBrand : nil,
-                        vehicleModel: showVehicle ? vehicleModel : nil,
-                        vehicleYear: showVehicle ? vehicleYear : nil
+                        vehicleBrand: showVehicle ? selectedVehicle?.brand : nil,
+                        vehicleModel: showVehicle ? selectedVehicle?.model : nil,
+                        vehicleYear: showVehicle ? selectedVehicle?.year : nil
                     )
                 }
                 dismiss()

@@ -35,6 +35,8 @@ struct OwnershipInsightCard: View {
                 .font(AppTypography.amountLarge)
                 .foregroundColor(AppColors.textPrimary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .monospacedDigit()
 
             // Subtitle
             if let subtitle {
@@ -82,6 +84,9 @@ struct PremiumMetricHero: View {
                 .heroNumberStyle()
                 .foregroundColor(AppColors.accentPrimary)
                 .multilineTextAlignment(.center)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .monospacedDigit()
 
             // Vehicle context
             if let vehicleName {

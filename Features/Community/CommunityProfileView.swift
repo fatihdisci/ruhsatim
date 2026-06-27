@@ -1,17 +1,18 @@
 import SwiftUI
+import SwiftData
 
 // MARK: - Community Profile View
 // Profil oluşturma ve düzenleme ekranı.
 
 struct CommunityProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var communityAuth: CommunityAuthService
+    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
 
     @State private var username: String
     @State private var displayName: String
-    @State private var vehicleBrand: String
-    @State private var vehicleModel: String
-    @State private var vehicleYear: String
+    @State private var selectedVehicleId: UUID?
     @State private var showVehicleOnPosts: Bool
     @State private var validationError: String?
     @State private var isSaving = false
@@ -28,10 +29,36 @@ struct CommunityProfileView: View {
         let profile = CommunityAuthService.shared.profile
         _username = State(initialValue: profile?.username ?? "")
         _displayName = State(initialValue: profile?.displayName ?? "")
-        _vehicleBrand = State(initialValue: profile?.defaultVehicleBrand ?? "")
-        _vehicleModel = State(initialValue: profile?.defaultVehicleModel ?? "")
-        _vehicleYear = State(initialValue: profile?.defaultVehicleYear.map { String($0) } ?? "")
+        _selectedVehicleId = State(initialValue: Self.loadSelectedVehicleId())
         _showVehicleOnPosts = State(initialValue: profile?.showVehicleOnPosts ?? false)
+    }
+
+    // MARK: - Vehicle Selection Persistence
+
+    private static let selectedVehicleIdKey = "community_selected_vehicle_id"
+
+    private static func loadSelectedVehicleId() -> UUID? {
+        guard let uuidString = UserDefaults.standard.string(forKey: selectedVehicleIdKey) else { return nil }
+        return UUID(uuidString: uuidString)
+    }
+
+    private static func saveSelectedVehicleId(_ id: UUID?) {
+        UserDefaults.standard.set(id?.uuidString, forKey: selectedVehicleIdKey)
+    }
+
+    private var selectedVehicleLabel: String? {
+        guard let id = selectedVehicleId,
+              let vehicle = vehicles.first(where: { $0.id == id }) else { return nil }
+        var parts = [vehicle.brand, vehicle.model]
+        if let year = vehicle.year { parts.append(String(year)) }
+        return parts.filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    /// Picker'da gösterilecek güvenli araç etiketi (plaka içermez).
+    private func vehicleLabel(for vehicle: Vehicle) -> String {
+        var parts = [vehicle.brand, vehicle.model]
+        if let year = vehicle.year { parts.append(String(year)) }
+        return parts.filter { !$0.isEmpty }.joined(separator: " ")
     }
 
     var body: some View {
@@ -94,16 +121,42 @@ struct CommunityProfileView: View {
                     Text("Görünen Ad")
                 }
 
-                // Vehicle defaults
+                // Vehicle defaults — kayıtlı araçlardan seçim
                 Section {
-                    TextField("Marka (örn: Renault)", text: $vehicleBrand)
-                    TextField("Model (örn: Clio)", text: $vehicleModel)
-                    TextField("Yıl (örn: 2020)", text: $vehicleYear)
-                        .keyboardType(.numberPad)
+                    if vehicles.isEmpty {
+                        // Hiç araç yok — bilgi mesajı
+                        HStack(spacing: AppSpacing.sm) {
+                            Image(systemName: "car")
+                                .font(.body)
+                                .foregroundColor(AppColors.textTertiary)
+                                .frame(width: 24)
+                            Text("Henüz araç eklenmemiş")
+                                .font(AppTypography.secondary)
+                                .foregroundColor(AppColors.textTertiary)
+                        }
 
-                    Toggle("Aracımı gönderilerimde göster", isOn: $showVehicleOnPosts)
+                        Text("Araç etiketi göstermek için önce Garaj'dan araç ekle.")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+
+                        Toggle("Aracımı gönderilerimde göster", isOn: $showVehicleOnPosts)
+                            .disabled(true)
+                    } else {
+                        // Araç seçimi
+                        Picker("Varsayılan Araç", selection: $selectedVehicleId) {
+                            Text("Araç gösterme").tag(nil as UUID?)
+                            ForEach(vehicles) { vehicle in
+                                Text(vehicleLabel(for: vehicle))
+                                    .tag(vehicle.id as UUID?)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(AppColors.accentPrimary)
+
+                        Toggle("Aracımı gönderilerimde göster", isOn: $showVehicleOnPosts)
+                    }
                 } header: {
-                    Text("Varsayılan Araç Bilgisi (isteğe bağlı)")
+                    Text("Varsayılan Araç (isteğe bağlı)")
                 } footer: {
                     Text("Profilinde görünen araç etiketi yalnızca marka/model/yıl içerir; plaka bilgisi asla paylaşılmaz.")
                         .foregroundColor(AppColors.textTertiary)
@@ -134,6 +187,14 @@ struct CommunityProfileView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Color.appBackground)
+            .onChange(of: vehicles.count) { _, _ in
+                // Seçili araç silinmişse seçimi sıfırla
+                if let selectedId = selectedVehicleId,
+                   !vehicles.contains(where: { $0.id == selectedId }) {
+                    selectedVehicleId = nil
+                    Self.saveSelectedVehicleId(nil)
+                }
+            }
             .navigationTitle(communityAuth.profile == nil ? "Profil Oluştur" : "Profili Düzenle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -229,6 +290,9 @@ struct CommunityProfileView: View {
                 let userId = session.user.id
                 let dn = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
 
+                // Seçili araçtan marka/model/yıl türet
+                let selectedVehicle = selectedVehicleId.flatMap { id in vehicles.first { $0.id == id } }
+
                 if communityAuth.profile == nil {
                     // Create
                     _ = try await CommunityProfileService.shared.createProfile(
@@ -238,17 +302,19 @@ struct CommunityProfileView: View {
                     )
                 } else {
                     // Update
-                    let yearInt = Int(vehicleYear.trimmingCharacters(in: .whitespacesAndNewlines))
                     _ = try await CommunityProfileService.shared.updateProfile(
                         userId: userId,
                         username: trimmedUsername,
                         displayName: dn.isEmpty ? nil : dn,
-                        defaultVehicleBrand: vehicleBrand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : vehicleBrand.trimmingCharacters(in: .whitespacesAndNewlines),
-                        defaultVehicleModel: vehicleModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : vehicleModel.trimmingCharacters(in: .whitespacesAndNewlines),
-                        defaultVehicleYear: yearInt,
+                        defaultVehicleBrand: showVehicleOnPosts ? selectedVehicle?.brand : nil,
+                        defaultVehicleModel: showVehicleOnPosts ? selectedVehicle?.model : nil,
+                        defaultVehicleYear: showVehicleOnPosts ? selectedVehicle?.year : nil,
                         showVehicleOnPosts: showVehicleOnPosts
                     )
                 }
+
+                // Seçimi persist et
+                Self.saveSelectedVehicleId(selectedVehicleId)
 
                 await communityAuth.fetchProfile(userId: userId)
                 dismiss()

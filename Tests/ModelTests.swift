@@ -966,3 +966,87 @@ final class RetentionNotificationServiceTests: XCTestCase {
         XCTAssertEqual(freq, .quarterly)
     }
 }
+
+// MARK: - Reminder Snooze Logic Tests
+final class ReminderSnoozeTests: XCTestCase {
+
+    /// Gelecekteki dueDate → dueDate baz alınır
+    func testSnoozeFutureDueDate_UsesDueDateAsBase() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let futureDue = Calendar.current.date(byAdding: .day, value: 9, to: today)!
+
+        // snoozeBaseDate mantığı:
+        let dueDay = Calendar.current.startOfDay(for: futureDue)
+        let baseDate = dueDay > today ? dueDay : today
+
+        // 3 gün ertele
+        let snoozed = Calendar.current.date(byAdding: .day, value: 3, to: baseDate)!
+
+        let expected = Calendar.current.date(byAdding: .day, value: 12, to: today)!
+        XCTAssertEqual(Calendar.current.startOfDay(for: snoozed),
+                       Calendar.current.startOfDay(for: expected),
+                       "Gelecekteki iş: dueDate + 3 olmalı (today + 12)")
+    }
+
+    /// Gecikmiş dueDate → bugün baz alınır
+    func testSnoozeOverdueDueDate_UsesTodayAsBase() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let pastDue = Calendar.current.date(byAdding: .day, value: -5, to: today)!
+
+        let dueDay = Calendar.current.startOfDay(for: pastDue)
+        let baseDate = dueDay > today ? dueDay : today
+
+        let snoozed = Calendar.current.date(byAdding: .day, value: 3, to: baseDate)!
+
+        let expected = Calendar.current.date(byAdding: .day, value: 3, to: today)!
+        XCTAssertEqual(Calendar.current.startOfDay(for: snoozed),
+                       Calendar.current.startOfDay(for: expected),
+                       "Gecikmiş iş: today + 3 olmalı")
+    }
+
+    /// Bugünkü dueDate → bugün baz alınır
+    func testSnoozeTodayDueDate_UsesTodayAsBase() {
+        let today = Calendar.current.startOfDay(for: Date())
+
+        let dueDay = Calendar.current.startOfDay(for: Date())
+        let baseDate = dueDay > today ? dueDay : today
+
+        let snoozed = Calendar.current.date(byAdding: .day, value: 3, to: baseDate)!
+
+        let expected = Calendar.current.date(byAdding: .day, value: 3, to: today)!
+        XCTAssertEqual(Calendar.current.startOfDay(for: snoozed),
+                       Calendar.current.startOfDay(for: expected),
+                       "Bugünkü iş: today + 3 olmalı")
+    }
+
+    /// Nil dueDate → bugün baz alınır
+    func testSnoozeNilDueDate_UsesTodayAsBase() {
+        let today = Calendar.current.startOfDay(for: Date())
+
+        // dueDate nil → baseDate = today
+        let baseDate = today
+
+        let snoozed = Calendar.current.date(byAdding: .day, value: 3, to: baseDate)!
+
+        let expected = Calendar.current.date(byAdding: .day, value: 3, to: today)!
+        XCTAssertEqual(Calendar.current.startOfDay(for: snoozed),
+                       Calendar.current.startOfDay(for: expected),
+                       "Nil dueDate: today + 3 olmalı")
+    }
+
+    /// Gelecekteki dueDate 1 gün sonra → dueDate baz alınır
+    func testSnoozeTomorrowDueDate_UsesDueDateAsBase() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
+
+        let dueDay = Calendar.current.startOfDay(for: tomorrow)
+        let baseDate = dueDay > today ? dueDay : today
+
+        let snoozed = Calendar.current.date(byAdding: .day, value: 7, to: baseDate)!
+
+        let expected = Calendar.current.date(byAdding: .day, value: 8, to: today)!
+        XCTAssertEqual(Calendar.current.startOfDay(for: snoozed),
+                       Calendar.current.startOfDay(for: expected),
+                       "Yarınki iş: dueDate + 7 olmalı (today + 8)")
+    }
+}

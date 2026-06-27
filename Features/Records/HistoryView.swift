@@ -14,6 +14,9 @@ struct HistoryView: View {
     @Query(sort: \VehicleDocument.createdAt, order: .reverse) private var allDocuments: [VehicleDocument]
     @Query(sort: \InspectionReport.reportDate, order: .reverse) private var allInspections: [InspectionReport]
     @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
+    @Query(filter: #Predicate<Reminder> { $0.statusRaw == "completed" },
+           sort: \Reminder.completedAt, order: .reverse)
+    private var completedReminders: [Reminder]
 
     @State private var selectedFilter: HistoryFilter = .all
     @State private var showAddExpense = false
@@ -117,7 +120,7 @@ struct HistoryView: View {
     // MARK: - Empty State
     private var isEmpty: Bool {
         switch selectedFilter {
-        case .all: return allExpenses.isEmpty && allServiceRecords.isEmpty && allDocuments.isEmpty && allInspections.isEmpty
+        case .all: return allExpenses.isEmpty && allServiceRecords.isEmpty && allDocuments.isEmpty && allInspections.isEmpty && completedReminders.isEmpty
         case .expenses: return allExpenses.isEmpty
         case .services: return allServiceRecords.isEmpty
         case .documents: return allDocuments.isEmpty
@@ -380,6 +383,16 @@ struct HistoryView: View {
         }
         for i in allInspections {
             items.append(HistoryTimelineItem(icon: "magnifyingglass", title: i.providerName, subtitle: i.branchName ?? "", dateDisplay: i.dateDisplay, color: AppColors.accentPrimary))
+        }
+        for r in completedReminders {
+            guard r.completedAt != nil else { continue }
+            items.append(HistoryTimelineItem(
+                icon: r.type.defaultIcon,
+                title: r.title,
+                subtitle: "Yapılacak tamamlandı",
+                dateDisplay: r.completedAt?.formatted(date: .numeric, time: .omitted) ?? "",
+                color: AppColors.success
+            ))
         }
         return items.sorted { $0.dateDisplay > $1.dateDisplay }.prefix(50).map { $0 }
     }
