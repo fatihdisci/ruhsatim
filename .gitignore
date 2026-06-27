@@ -33,4 +33,5 @@ build/
 *.xcbuilddata
 
 # Configuration (production secrets)
+Config.xcconfig
 Configuration/Config.xcconfig

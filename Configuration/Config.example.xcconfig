@@ -1,19 +1,21 @@
 // Garajım — Configuration Template
-// Copy this file to Config.xcconfig and fill in real values.
-// Config.xcconfig is gitignored — never commit production secrets.
-
-// Supabase project URL (https://YOUR-PROJECT.supabase.co)
-SUPABASE_URL = https://YOUR-PROJECT.supabase.co
-
-// Supabase anonymous key (public, RLS-enforced)
-SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
-// Swift Compiler — Custom Flags for Info.plist preprocessor
-// These are set via Xcode build settings, not here directly.
-// The xcconfig values are read via Bundle.main.infoDictionary
-// using the key format SUPABASE_URL and SUPABASE_ANON_KEY.
+// Bu dosyayı proje köküne Config.xcconfig olarak kopyalayıp
+// gerçek değerleri yazın. Config.xcconfig gitignore'dadır —
+// production secret'ları asla commit etmeyin.
 //
-// In Xcode build settings, add to "Preprocessor Definitions" or
-// "Active Compilation Conditions": none needed.
-// Values are loaded from Info.plist which is populated via
-// Xcode's "Info.plist Values" section from xcconfig vars.
+// Xcode'da Config.xcconfig'in build configuration'a atanmış olması gerekir:
+//   Target: Ruhsatim → Info → Configurations
+//   Debug: Config.xcconfig
+//   Release: Config.xcconfig
+//
+// Key'ler INFOPLIST_KEY_ prefix'i ile tanımlanır.
+// GENERATE_INFOPLIST_FILE = YES ile Info.plist otomatik oluşturulduğu için
+// bu prefix Xcode'a "bu değeri Info.plist'e ekle" talimatını verir.
+// Çalışma zamanında Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL")
+// ile okunur (INFOPLIST_KEY_ prefix'i Info.plist'te görünmez).
+
+// Supabase proje URL'si (https://YOUR-PROJECT.supabase.co)
+INFOPLIST_KEY_SUPABASE_URL = https://YOUR-PROJECT.supabase.co
+
+// Supabase anonymous key (public, RLS ile korunur)
+INFOPLIST_KEY_SUPABASE_ANON_KEY = YOUR_SUPABASE_ANON_PUBLIC_KEY

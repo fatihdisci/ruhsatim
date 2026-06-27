@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Community Empty States
 // Topluluk özelliğinin tüm boş/hata durumları.
 
-enum CommunityEmptyState {
+enum CommunityEmptyState: Equatable {
     case signedOut
     case noProfile
     case noPosts
@@ -78,6 +78,25 @@ struct CommunityEmptyStateView: View {
                 actionTitle: state.actionTitle.map { LocalizedStringKey($0) },
                 action: action ?? {}
             )
+
+            #if DEBUG
+            if state == .configMissing {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Debug: SupabaseConfig")
+                        .font(AppTypography.captionMedium)
+                        .foregroundColor(AppColors.textSecondary)
+                    Text(SupabaseConfig.debugState())
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(AppColors.textTertiary)
+                }
+                .padding(AppSpacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: AppRadius.small)
+                        .fill(AppColors.surfaceSecondary)
+                )
+                .padding(.horizontal, AppSpacing.lg)
+            }
+            #endif
 
             Spacer()
         }
