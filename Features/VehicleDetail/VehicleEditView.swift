@@ -89,6 +89,8 @@ struct VehicleEditView: View {
         isCustomBrand ? nil : CarCatalogService.shared.brand(named: brand)
     }
 
+    private let maxPhotoBytes = 20 * 1024 * 1024
+
     var body: some View {
         NavigationStack {
             Form {
@@ -423,8 +425,9 @@ struct VehicleEditView: View {
     private func saveChanges() {
         let errors = validate()
         if errors.isEmpty {
-            applyChanges()
-            dismiss()
+            if applyChanges() {
+                dismiss()
+            }
         } else {
             validationErrors = errors
             showErrors = true
@@ -462,7 +465,7 @@ struct VehicleEditView: View {
         return errors
     }
 
-    private func applyChanges() {
+    private func applyChanges() -> Bool {
         // Fotoğraf: yeni seçildiyse kaydet, değişmediyse dokunma
         if let newImage = selectedPhotoImage {
             // Eski fotoğraf varsa sil
@@ -472,8 +475,8 @@ struct VehicleEditView: View {
             do {
                 vehicle.photoFileName = try VehiclePhotoStorageService.shared.savePhoto(newImage)
             } catch {
-                photoError = "Fotoğraf eklenemedi. Lütfen tekrar dene."
-                return
+                photoError = error.localizedDescription
+                return false
             }
         }
 
@@ -500,22 +503,34 @@ struct VehicleEditView: View {
             generator.notificationOccurred(.success)
         } catch {
             validationErrors = ["Kaydedilemedi: \(error.localizedDescription)"]
+            return false
         }
+        return true
     }
 
     // MARK: - Photo Handling
     private func loadEditPhotoItem(_ item: PhotosPickerItem) {
         photoError = nil
         Task {
-            if let data = try? await item.loadTransferable(type: Data.self),
-               data.count < 20_971_520,
-               let image = UIImage(data: data) {
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self) else {
+                    throw VehiclePhotoSelectionError.unreadable
+                }
+                guard data.count <= maxPhotoBytes else {
+                    throw VehiclePhotoSelectionError.tooLarge
+                }
+                guard let image = UIImage(data: data) else {
+                    throw VehiclePhotoSelectionError.decodeFailed
+                }
                 await MainActor.run {
                     selectedPhotoImage = image
+                    photoError = nil
                 }
-            } else {
+            } catch {
                 await MainActor.run {
-                    photoError = "Fotoğraf eklenemedi. Lütfen tekrar dene."
+                    selectedPhotoItem = nil
+                    selectedPhotoImage = nil
+                    photoError = (error as? LocalizedError)?.errorDescription ?? "Fotoğraf okunamadı. Lütfen farklı bir görsel seç."
                 }
             }
         }

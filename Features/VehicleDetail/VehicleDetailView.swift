@@ -853,6 +853,11 @@ struct VehicleDetailView: View {
             modelContext.delete(sale)
         }
 
+        // Araç fotoğrafını fiziksel diskten sil
+        if let photoFileName = vehicle.photoFileName {
+            VehiclePhotoStorageService.shared.deletePhoto(fileName: photoFileName)
+        }
+
         modelContext.delete(vehicle)
         try? modelContext.save()
 

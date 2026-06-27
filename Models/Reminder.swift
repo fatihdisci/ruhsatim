@@ -107,6 +107,33 @@ final class Reminder {
         return .later
     }
 
+    var isAddedToHistory: Bool {
+        statusRaw == ReminderStatus.completed.rawValue && addedToHistoryAt != nil
+    }
+
+    static func snoozedDueDate(
+        currentDueDate: Date?,
+        days: Int,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date {
+        let today = calendar.startOfDay(for: now)
+        let baseDate: Date
+        if let currentDueDate {
+            let dueDay = calendar.startOfDay(for: currentDueDate)
+            baseDate = dueDay > today ? dueDay : today
+        } else {
+            baseDate = today
+        }
+        return calendar.date(byAdding: .day, value: days, to: baseDate) ?? baseDate
+    }
+
+    func completeAndAddToHistory(now: Date = Date()) {
+        statusRaw = ReminderStatus.completed.rawValue
+        completedAt = now
+        addedToHistoryAt = now
+    }
+
     init(
         id: UUID = UUID(),
         vehicleId: UUID,

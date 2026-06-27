@@ -102,6 +102,9 @@ struct DocumentFormView: View {
             .onChange(of: selectedPhotoItem) { _, newItem in
                 if let item = newItem { handlePhotoSelection(item) }
             }
+            .onChange(of: documentType) { _, newType in
+                updateAutomaticTitle(for: newType)
+            }
             .fileImporter(
                 isPresented: $showFileImporter,
                 allowedContentTypes: [.pdf, .image],
@@ -138,11 +141,6 @@ struct DocumentFormView: View {
     private func docTypeButton(_ type: DocumentType) -> some View {
         Button {
             documentType = type
-            // Başlık elle düzenlenmediyse otomatik güncelle
-            if !hasUserEditedTitle {
-                title = type.displayName
-                lastAutoTitle = type.displayName
-            }
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: type.defaultIcon)
@@ -196,6 +194,12 @@ struct DocumentFormView: View {
             }
         } header: { Text("Detaylar") }
         .listRowBackground(Color.appSurface)
+    }
+
+    private func updateAutomaticTitle(for type: DocumentType) {
+        guard !isEditing, !hasUserEditedTitle else { return }
+        title = type.displayName
+        lastAutoTitle = type.displayName
     }
 
     // MARK: - File Selection

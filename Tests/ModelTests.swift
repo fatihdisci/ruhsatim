@@ -138,6 +138,53 @@ final class VehicleModelTests: XCTestCase {
         XCTAssertEqual(reminder.groupKey, .later) // tamamlananlar later grubunda
     }
 
+    func testFutureReminderSnoozeUsesDueDateAsBase() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 6, day: 27, hour: 12))!
+        let futureDueDate = calendar.date(from: DateComponents(year: 2026, month: 7, day: 10, hour: 9))!
+
+        let snoozed = Reminder.snoozedDueDate(currentDueDate: futureDueDate, days: 7, now: now, calendar: calendar)
+
+        XCTAssertEqual(calendar.startOfDay(for: snoozed), calendar.date(from: DateComponents(year: 2026, month: 7, day: 17))!)
+    }
+
+    func testOverdueReminderSnoozeUsesTodayAsBase() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 6, day: 27, hour: 12))!
+        let overdueDueDate = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9))!
+
+        let snoozed = Reminder.snoozedDueDate(currentDueDate: overdueDueDate, days: 3, now: now, calendar: calendar)
+
+        XCTAssertEqual(calendar.startOfDay(for: snoozed), calendar.date(from: DateComponents(year: 2026, month: 6, day: 30))!)
+    }
+
+    func testCompletedReminderIsFetchedByHistoryPredicateOnlyWhenAddedToHistory() throws {
+        let container = try ModelContainer(
+            for: Reminder.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = ModelContext(container)
+
+        let visibleReminder = Reminder(vehicleId: UUID(), type: .inspection, title: "Muayene")
+        visibleReminder.completeAndAddToHistory(now: Date())
+        let hiddenReminder = Reminder(vehicleId: UUID(), type: .casco, title: "Kasko", status: .completed, completedAt: Date())
+
+        context.insert(visibleReminder)
+        context.insert(hiddenReminder)
+        try context.save()
+
+        let descriptor = FetchDescriptor<Reminder>(
+            predicate: #Predicate { $0.statusRaw == "Tamamlandı" && $0.addedToHistoryAt != nil },
+            sortBy: [SortDescriptor(\.addedToHistoryAt, order: .reverse)]
+        )
+        let fetched = try context.fetch(descriptor)
+
+        XCTAssertEqual(fetched.map(\.id), [visibleReminder.id])
+        XCTAssertTrue(visibleReminder.isAddedToHistory)
+    }
+
     func testReminderDaysRemaining() {
         let vehicleId = UUID()
         let futureDate = Calendar.current.date(byAdding: .day, value: 45, to: Date())!

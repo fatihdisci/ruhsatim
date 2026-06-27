@@ -61,12 +61,11 @@ struct ReminderDetailView: View {
         } message: {
             Text("Bu yapılacak kalıcı olarak silinir. Bildirimler iptal edilir.")
         }
-        .confirmationDialog("Yapılacak tamamlandı mı?", isPresented: $showCompletionOptions) {
-            Button("Tamamlandı ve Geçmiş'e Ekle") { complete(addToHistory: true) }
-            Button("Sadece Tamamlandı İşaretle") { complete(addToHistory: false) }
+        .confirmationDialog("Yapılacak tamamlansın mı?", isPresented: $showCompletionOptions) {
+            Button("Tamamla ve Geçmişe Ekle") { completeAndAddToHistory() }
             Button("Vazgeç", role: .cancel) {}
         } message: {
-            Text("Bu işi tamamlandı olarak işaretleyip Geçmiş'e ekleyebilirsin.")
+            Text("Bu iş tamamlandı olarak işaretlenir ve Geçmiş ekranında görünür.")
         }
         .sheet(isPresented: $showSnoozeSheet) {
             snoozeSheet
@@ -244,7 +243,7 @@ struct ReminderDetailView: View {
                 } label: {
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                        Text("Tamamlandı İşaretle")
+                        Text("Tamamla ve Geçmişe Ekle")
                         Spacer()
                     }
                     .frame(maxWidth: .infinity)
@@ -290,24 +289,13 @@ struct ReminderDetailView: View {
 
     // MARK: - Snooze
 
-    /// Erteleme için baz alınacak tarih:
-    /// - Gelecekteki dueDate → dueDate'ten itibaren ertele
-    /// - Bugün/geçmiş dueDate → bugünden itibaren ertele
-    /// - dueDate yok → bugünden itibaren ertele
-    private var snoozeBaseDate: Date {
-        let today = Calendar.current.startOfDay(for: Date())
-        guard let dueDate = reminder.dueDate else { return today }
-        let dueDay = Calendar.current.startOfDay(for: dueDate)
-        return dueDay > today ? dueDay : today
-    }
-
     private var snoozePreviewDate: String {
-        let preview = Calendar.current.date(byAdding: .day, value: snoozeDays, to: snoozeBaseDate) ?? Date()
+        let preview = Reminder.snoozedDueDate(currentDueDate: reminder.dueDate, days: snoozeDays)
         return preview.formatted(date: .long, time: .omitted)
     }
 
     private func snoozeReminder() {
-        let newDate = Calendar.current.date(byAdding: .day, value: snoozeDays, to: snoozeBaseDate) ?? Date()
+        let newDate = Reminder.snoozedDueDate(currentDueDate: reminder.dueDate, days: snoozeDays)
         reminder.dueDate = newDate
         NotificationService.shared.cancelReminder(reminder)
         try? modelContext.save()
@@ -344,21 +332,18 @@ struct ReminderDetailView: View {
 
     // MARK: - Actions
 
-    /// addToHistory true ise completedAt ve addedToHistoryAt set edilir; HistoryView'da görünür.
-    /// addToHistory false ise sadece status completed olur, Geçmiş'te gösterilmez.
-    private func complete(addToHistory: Bool) {
+    /// Tamamlama her zaman completedAt ve addedToHistoryAt set eder; HistoryView'da görünür.
+    private func completeAndAddToHistory() {
         let impact = UINotificationFeedbackGenerator()
         impact.notificationOccurred(.success)
         let rule = reminder.repeatRule
         let oldDueDate = reminder.dueDate
         let oldDueOdometer = reminder.dueOdometer
-        reminder.statusRaw = ReminderStatus.completed.rawValue
-        reminder.completedAt = addToHistory ? Date() : nil
-        reminder.addedToHistoryAt = addToHistory ? Date() : nil
+        reminder.completeAndAddToHistory()
         try? modelContext.save()
         NotificationService.shared.cancelReminder(reminder)
 
-        if rule != .none, let baseDate = oldDueDate ?? (addToHistory ? reminder.completedAt : Date()) {
+        if rule != .none, let baseDate = oldDueDate ?? reminder.completedAt {
             if let nextDate = ReminderRepeatEngine.shared.nextDueDate(from: baseDate, rule: rule) {
                 let next = Reminder(
                     vehicleId: reminder.vehicleId, type: reminder.type,

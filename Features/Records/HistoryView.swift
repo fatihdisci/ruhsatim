@@ -14,8 +14,8 @@ struct HistoryView: View {
     @Query(sort: \VehicleDocument.createdAt, order: .reverse) private var allDocuments: [VehicleDocument]
     @Query(sort: \InspectionReport.reportDate, order: .reverse) private var allInspections: [InspectionReport]
     @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
-    @Query(filter: #Predicate<Reminder> { $0.statusRaw == "Tamamlandı" && $0.completedAt != nil },
-           sort: \Reminder.completedAt, order: .reverse)
+    @Query(filter: #Predicate<Reminder> { $0.statusRaw == "Tamamlandı" && $0.addedToHistoryAt != nil },
+           sort: \Reminder.addedToHistoryAt, order: .reverse)
     private var completedReminders: [Reminder]
 
     @State private var selectedFilter: HistoryFilter = .all
@@ -184,7 +184,7 @@ struct HistoryView: View {
                 || allServiceRecords.contains { isWithinDateRange($0.date) }
                 || allDocuments.contains { isWithinDateRange($0.createdAt) }
                 || allInspections.contains { isWithinDateRange($0.reportDate) }
-                || completedReminders.contains { isWithinDateRange($0.completedAt ?? .distantPast) }
+                || completedReminders.contains { isWithinDateRange($0.addedToHistoryAt ?? .distantPast) }
             return !hasItems
         case .expenses: return allExpenses.filter { isWithinDateRange($0.date) }.isEmpty
         case .services: return allServiceRecords.filter { isWithinDateRange($0.date) }.isEmpty
@@ -450,15 +450,16 @@ struct HistoryView: View {
         for i in allInspections where isWithinDateRange(i.reportDate) {
             items.append(HistoryTimelineItem(icon: "magnifyingglass", title: i.providerName, subtitle: i.branchName ?? "", date: i.reportDate, dateDisplay: i.dateDisplay, color: AppColors.accentPrimary))
         }
-        for r in completedReminders where isWithinDateRange(r.completedAt ?? .distantPast) {
+        for r in completedReminders where isWithinDateRange(r.addedToHistoryAt ?? .distantPast) {
             let vehicle = vehicles.first { $0.id == r.vehicleId }
             let vehicleText = vehicle.map { $0.plate.isEmpty ? $0.fullName : $0.plate } ?? ""
+            let historyDate = r.addedToHistoryAt ?? r.completedAt ?? .distantPast
             items.append(HistoryTimelineItem(
                 icon: "checkmark.circle",
                 title: r.title,
                 subtitle: vehicleText.isEmpty ? "Yapılacak tamamlandı" : "\(vehicleText) · Yapılacak tamamlandı",
-                date: r.completedAt ?? .distantPast,
-                dateDisplay: r.completedAt?.formatted(date: .numeric, time: .omitted) ?? "",
+                date: historyDate,
+                dateDisplay: historyDate.formatted(date: .numeric, time: .omitted),
                 color: AppColors.success
             ))
         }

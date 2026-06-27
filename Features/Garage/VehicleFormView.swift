@@ -66,6 +66,8 @@ struct VehicleFormView: View {
         isCustomBrand ? nil : CarCatalogService.shared.brand(named: brand)
     }
 
+    private let maxPhotoBytes = 20 * 1024 * 1024
+
     var body: some View {
         NavigationStack {
             Form {
@@ -279,7 +281,7 @@ struct VehicleFormView: View {
                         selectedPhotoImage = nil
                         photoError = nil
                     } label: {
-                        Label("Fotoğrafı Kaldır", systemImage: "xmark.circle")
+                        Label("Seçimi İptal Et", systemImage: "xmark.circle")
                             .font(AppTypography.caption)
                             .foregroundColor(AppColors.critical)
                     }
@@ -305,6 +307,7 @@ struct VehicleFormView: View {
                             .font(.caption)
                             .foregroundColor(AppColors.textTertiary)
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -545,7 +548,7 @@ struct VehicleFormView: View {
             do {
                 savedPhotoFileName = try VehiclePhotoStorageService.shared.savePhoto(image)
             } catch {
-                photoError = "Fotoğraf eklenemedi. Lütfen tekrar dene."
+                photoError = error.localizedDescription
                 return
             }
         }
@@ -636,17 +639,44 @@ struct VehicleFormView: View {
     private func loadPhotoItem(_ item: PhotosPickerItem) {
         photoError = nil
         Task {
-            if let data = try? await item.loadTransferable(type: Data.self),
-               data.count < 20_971_520,
-               let image = UIImage(data: data) {
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self) else {
+                    throw VehiclePhotoSelectionError.unreadable
+                }
+                guard data.count <= maxPhotoBytes else {
+                    throw VehiclePhotoSelectionError.tooLarge
+                }
+                guard let image = UIImage(data: data) else {
+                    throw VehiclePhotoSelectionError.decodeFailed
+                }
                 await MainActor.run {
                     selectedPhotoImage = image
+                    photoError = nil
                 }
-            } else {
+            } catch {
                 await MainActor.run {
-                    photoError = "Fotoğraf eklenemedi. Lütfen tekrar dene."
+                    selectedPhotoItem = nil
+                    selectedPhotoImage = nil
+                    photoError = (error as? LocalizedError)?.errorDescription ?? "Fotoğraf okunamadı. Lütfen farklı bir görsel seç."
                 }
             }
+        }
+    }
+}
+
+enum VehiclePhotoSelectionError: LocalizedError {
+    case unreadable
+    case tooLarge
+    case decodeFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .unreadable:
+            return "Fotoğraf okunamadı. Lütfen tekrar dene."
+        case .tooLarge:
+            return "Fotoğraf 20 MB'dan büyük olamaz. Daha küçük bir görsel seç."
+        case .decodeFailed:
+            return "Bu fotoğraf açılamadı. Lütfen JPG, PNG veya HEIC gibi geçerli bir görsel seç."
         }
     }
 }
