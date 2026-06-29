@@ -15,6 +15,7 @@
 -- ============================================================================
 
 DROP POLICY IF EXISTS "Visible_non_deleted_posts" ON community_posts;
+DROP POLICY IF EXISTS "Authenticated_can_read_posts" ON community_posts;
 
 -- SADECE giriş yapmış kullanıcılar okuyabilir.
 -- Admin/moderator gizli gönderileri de görebilir.
@@ -33,6 +34,7 @@ CREATE POLICY "Authenticated_can_read_posts" ON community_posts
 -- ============================================================================
 
 DROP POLICY IF EXISTS "Visible_non_deleted_comments" ON community_comments;
+DROP POLICY IF EXISTS "Authenticated_can_read_comments" ON community_comments;
 
 CREATE POLICY "Authenticated_can_read_comments" ON community_comments
   FOR SELECT USING (
@@ -49,6 +51,7 @@ CREATE POLICY "Authenticated_can_read_comments" ON community_comments
 -- ============================================================================
 
 DROP POLICY IF EXISTS "Profiles_are_public" ON profiles;
+DROP POLICY IF EXISTS "Authenticated_can_read_profiles" ON profiles;
 
 -- Profil bilgilerini sadece giriş yapmış kullanıcılar görebilir.
 CREATE POLICY "Authenticated_can_read_profiles" ON profiles
@@ -64,9 +67,9 @@ CREATE POLICY "Authenticated_can_read_profiles" ON profiles
 -- ORDER BY tablename;
 
 -- 2. Test: Anon istek ile gönderi okumayı dene → hata almalısın.
---    curl 'https://<PROJECT>.supabase.co/rest/v1/community_posts?select=*'
+--    curl 'https://fxltjhenpjydbsjtgpsi.supabase.co/rest/v1/community_posts?select=*'
 --    Cevap: {"code":"PGRST301","details":null,"hint":null,"message":"No authorization header"}
 
 -- 3. Auth header ile dene → başarılı olmalı.
---    curl -H 'Authorization: Bearer <JWT>' 'https://<PROJECT>.supabase.co/rest/v1/community_posts?select=*'
+--    curl -H 'Authorization: Bearer <JWT>' 'https://fxltjhenpjydbsjtgpsi.supabase.co/rest/v1/community_posts?select=*'
 -- ============================================================================
