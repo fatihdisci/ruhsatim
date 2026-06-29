@@ -43,11 +43,12 @@ struct CommunityCreatePostView: View {
                     TextField("Başlık (5-120 karakter)", text: $title)
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textPrimary)
+                } header: {
+                    Text("Başlık")
+                } footer: {
                     Text("\(title.count)/120")
                         .font(AppTypography.caption)
                         .foregroundColor(title.count > 120 ? AppColors.critical : AppColors.textTertiary)
-                } header: {
-                    Text("Başlık")
                 }
 
                 // Body
@@ -66,11 +67,12 @@ struct CommunityCreatePostView: View {
                                     .allowsHitTesting(false)
                             }
                         }
+                } header: {
+                    Text("İçerik")
+                } footer: {
                     Text("\(bodyText.count)/5000")
                         .font(AppTypography.caption)
                         .foregroundColor(bodyText.count > 5000 ? AppColors.critical : AppColors.textTertiary)
-                } header: {
-                    Text("İçerik")
                 }
 
                 // Post type
