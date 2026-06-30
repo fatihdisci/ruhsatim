@@ -269,21 +269,23 @@ struct GarageView: View {
     /// Sadece kart içeriği; NavigationLink ve padding ayrı ayrı sarılır
     /// (tek araçta doğrudan, çoklu araçta TabView içinde).
     private func heroCardContent(vehicle: Vehicle) -> some View {
-        heroCardInner(vehicle: vehicle)
-            .background(
-                RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous)
-                    .fill(Color.appSurface)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous)
-                    .stroke(AppColors.border.opacity(0.42), lineWidth: 0.5)
-            )
-            .compositingGroup()
-            .shadow(color: AppColors.textPrimary.opacity(0.08), radius: 18, x: 0, y: 10)
-            .shadow(color: AppColors.textPrimary.opacity(0.035), radius: 4, x: 0, y: 1)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("\\(vehicle.plate), \\(vehicle.fullName), \\(vehicle.odometerDisplay)")
+        ZStack {
+            // Alt katman: shadow'lu arka plan (clipped DEĞİL, shape'e bağlı)
+            RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous)
+                .fill(Color.appSurface)
+                .shadow(color: AppColors.textPrimary.opacity(0.08), radius: 18, x: 0, y: 10)
+                .shadow(color: AppColors.textPrimary.opacity(0.035), radius: 4, x: 0, y: 1)
+
+            // Üst katman: içerik (clipped)
+            heroCardInner(vehicle: vehicle)
+                .clipShape(RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous)
+                        .stroke(AppColors.border.opacity(0.42), lineWidth: 0.5)
+                )
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\\(vehicle.plate), \\(vehicle.fullName), \\(vehicle.odometerDisplay)")
     }
 
     private func heroCardInner(vehicle: Vehicle) -> some View {
