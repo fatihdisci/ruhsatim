@@ -26,7 +26,7 @@ struct InspectionReportFormView: View {
 
     @State private var validationErrors: [String] = []
 
-    init(existingReport: InspectionReport? = nil) {
+    init(existingReport: InspectionReport? = nil, preselectedVehicleId: UUID? = nil) {
         self.existingReport = existingReport
         if let r = existingReport {
             _providerName = State(initialValue: r.providerName)
@@ -38,6 +38,8 @@ struct InspectionReportFormView: View {
             _selectedDocumentId = State(initialValue: r.documentId)
             _verificationStatus = State(initialValue: r.verificationStatus)
             _includeInSaleFile = State(initialValue: r.includeInSaleFile)
+        } else if let preselectedVehicleId {
+            _selectedVehicleId = State(initialValue: preselectedVehicleId)
         }
     }
 

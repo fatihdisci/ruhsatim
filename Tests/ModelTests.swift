@@ -514,6 +514,139 @@ final class VehicleModelTests: XCTestCase {
     }
 }
 
+// MARK: - Arvia Rehber Insight Tests
+final class VehicleInsightServiceTests: XCTestCase {
+    private lazy var calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }()
+
+    private lazy var now: Date = calendar.date(from: DateComponents(year: 2026, month: 6, day: 30, hour: 12))!
+
+    private var service: VehicleInsightService {
+        VehicleInsightService(calendar: calendar, now: now)
+    }
+
+    func testEmptyDataDoesNotCrashAndRespectsVisibleLimit() {
+        let vehicle = Vehicle(brand: "Renault", model: "Clio")
+
+        let insights = service.insights(
+            for: vehicle,
+            reminders: [],
+            expenses: [],
+            serviceRecords: [],
+            documents: [],
+            inspectionReports: []
+        )
+
+        XCTAssertLessThanOrEqual(insights.count, VehicleInsightService.defaultVisibleLimit)
+    }
+
+    func testNoServiceRecordCreatesMaintenanceInsight() {
+        let vehicleId = UUID()
+        let insights = service.insights(
+            for: Vehicle(id: vehicleId, currentOdometer: 42_000),
+            reminders: [],
+            expenses: [],
+            serviceRecords: [],
+            documents: [document(vehicleId: vehicleId)],
+            inspectionReports: [inspection(vehicleId: vehicleId)],
+            maxVisible: 10
+        )
+
+        XCTAssertTrue(insights.contains { $0.type == .maintenance && $0.action == .addServiceRecord })
+    }
+
+    func testNoDocumentsCreatesDocumentInsight() {
+        let vehicleId = UUID()
+        let insights = service.insights(
+            for: Vehicle(id: vehicleId, currentOdometer: 42_000),
+            reminders: [],
+            expenses: [],
+            serviceRecords: [serviceRecord(vehicleId: vehicleId)],
+            documents: [],
+            inspectionReports: [inspection(vehicleId: vehicleId)],
+            maxVisible: 10
+        )
+
+        XCTAssertTrue(insights.contains { $0.type == .missingDocument && $0.action == .addDocument })
+    }
+
+    func testNoInspectionReportCreatesSaleReadinessInsight() {
+        let vehicleId = UUID()
+        let insights = service.insights(
+            for: Vehicle(id: vehicleId, currentOdometer: 42_000),
+            reminders: [],
+            expenses: [],
+            serviceRecords: [serviceRecord(vehicleId: vehicleId)],
+            documents: [document(vehicleId: vehicleId)],
+            inspectionReports: [],
+            maxVisible: 10
+        )
+
+        XCTAssertTrue(insights.contains { $0.type == .saleFileReadiness && $0.action == .addInspectionReport })
+    }
+
+    func testOverdueReminderCreatesOverdueInsight() {
+        let vehicleId = UUID()
+        let overdueDate = calendar.date(byAdding: .day, value: -5, to: now)!
+        let reminder = Reminder(
+            vehicleId: vehicleId,
+            type: .inspection,
+            title: "Muayene",
+            dueDate: overdueDate,
+            priority: .critical
+        )
+
+        let insights = service.insights(
+            for: Vehicle(id: vehicleId, currentOdometer: 42_000),
+            reminders: [reminder],
+            expenses: [],
+            serviceRecords: [serviceRecord(vehicleId: vehicleId)],
+            documents: [document(vehicleId: vehicleId)],
+            inspectionReports: [inspection(vehicleId: vehicleId)],
+            maxVisible: 10
+        )
+
+        XCTAssertTrue(insights.contains { $0.type == .overdueReminder && $0.action == .openTodos })
+    }
+
+    func testDefaultVisibleInsightsNeverExceedThree() {
+        let vehicle = Vehicle(currentOdometer: 0)
+
+        let insights = service.insights(
+            for: vehicle,
+            reminders: [Reminder(vehicleId: vehicle.id, title: "Geciken", dueDate: calendar.date(byAdding: .day, value: -1, to: now))],
+            expenses: [],
+            serviceRecords: [],
+            documents: [],
+            inspectionReports: []
+        )
+
+        XCTAssertLessThanOrEqual(insights.count, 3)
+    }
+
+    func testInsightActionsMapToValidDestinations() {
+        for action in VehicleInsightAction.allCases {
+            XCTAssertFalse(action.title.isEmpty)
+            XCTAssertFalse(action.destinationKey.isEmpty)
+        }
+    }
+
+    private func serviceRecord(vehicleId: UUID) -> ServiceRecord {
+        ServiceRecord(vehicleId: vehicleId, serviceType: .periodic, date: now, odometer: 40_000)
+    }
+
+    private func document(vehicleId: UUID) -> VehicleDocument {
+        VehicleDocument(vehicleId: vehicleId, type: .insurancePolicy, title: "Poliçe", localFileName: "policy.pdf")
+    }
+
+    private func inspection(vehicleId: UUID) -> InspectionReport {
+        InspectionReport(vehicleId: vehicleId, providerName: "Ekspertiz", reportDate: now, odometer: 41_000)
+    }
+}
+
 // MARK: - Report Calculation Tests
 final class ReportCalculationTests: XCTestCase {
 
@@ -706,6 +839,27 @@ final class PaywallLimitTests: XCTestCase {
         XCTAssertTrue(pro.canCreateSaleFile())
         XCTAssertTrue(pro.canAccessAdvancedReports())
         XCTAssertTrue(pro.canCreateInspectionReport())
+    }
+
+    func testFreeUserCurrentMVPFeatureSurfacesRemainUnlocked() {
+        let free = PaywallService(isProForTesting: false)
+
+        XCTAssertTrue(free.canSaveNewDocument(currentCount: 500))
+        XCTAssertTrue(free.canAddDocument(currentCount: 500))
+        XCTAssertTrue(free.canCreateSaleFile())
+        XCTAssertTrue(free.canAccessAdvancedReports())
+        XCTAssertTrue(free.canCreateInspectionReport())
+    }
+
+    func testOnlySecondVehicleIsProGatedForFreeUsers() {
+        let free = PaywallService(isProForTesting: false)
+
+        XCTAssertTrue(free.canAddVehicle(currentCount: 0))
+        XCTAssertFalse(free.canAddVehicle(currentCount: 1))
+        XCTAssertTrue(free.canCreateSaleFile())
+        XCTAssertTrue(free.canAccessAdvancedReports())
+        XCTAssertTrue(free.canCreateInspectionReport())
+        XCTAssertTrue(free.canAddDocument(currentCount: 1_000))
     }
 
     func testDocumentSaveGuardIsUnlimitedForMVP() {

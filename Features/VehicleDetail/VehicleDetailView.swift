@@ -19,15 +19,18 @@ struct VehicleDetailView: View {
     @Query private var allServiceRecords: [ServiceRecord]
     @Query private var allInspectionReports: [InspectionReport]
     @Query(sort: \VehicleDocument.createdAt, order: .reverse) private var allDocuments: [VehicleDocument]
+    @Query(sort: \SaleFile.createdAt, order: .reverse) private var allSaleFiles: [SaleFile]
 
     @State private var showEditSheet = false
     @State private var showDeleteConfirmation = false
     @State private var showArchiveConfirmation = false
+    @State private var showAddServiceRecord = false
     @State private var showAddInspection = false
     @State private var showSaleFile = false
     @State private var showAddDocument = false
     @State private var showDocumentPreview = false
     @State private var previewDocumentURL: URL?
+    @State private var dismissedGuideInsightIDs: Set<String> = []
 
     // Filtered data
     private var reminders: [Reminder] {
@@ -51,6 +54,10 @@ struct VehicleDetailView: View {
         allDocuments.filter { $0.vehicleId == vehicle.id }
     }
 
+    private var saleFiles: [SaleFile] {
+        allSaleFiles.filter { $0.vehicleId == vehicle.id }
+    }
+
     private var activeReminders: [Reminder] {
         reminders.filter { $0.statusRaw != ReminderStatus.completed.rawValue && $0.statusRaw != ReminderStatus.archived.rawValue }
     }
@@ -62,6 +69,19 @@ struct VehicleDetailView: View {
         return activeReminders
             .filter { $0.dueDate != nil }
             .min(by: { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) })
+    }
+
+    private var guideInsights: [VehicleInsight] {
+        VehicleInsightService.shared.insights(
+            for: vehicle,
+            reminders: reminders,
+            expenses: expenses,
+            serviceRecords: serviceRecords,
+            documents: documents,
+            inspectionReports: inspectionReports,
+            saleFiles: saleFiles
+        )
+        .filter { !dismissedGuideInsightIDs.contains($0.id) }
     }
 
     var body: some View {
@@ -85,6 +105,10 @@ struct VehicleDetailView: View {
 
                 // MARK: File Completeness
                 fileCompletenessCard
+                    .padding(.horizontal, AppSpacing.screenMarginH)
+
+                // MARK: Arvia Rehber
+                arviaGuideSection
                     .padding(.horizontal, AppSpacing.screenMarginH)
 
                 // MARK: Inspection Report
@@ -153,8 +177,11 @@ struct VehicleDetailView: View {
         .sheet(isPresented: $showEditSheet) {
             VehicleEditView(vehicle: vehicle)
         }
+        .sheet(isPresented: $showAddServiceRecord) {
+            ServiceRecordFormView(preselectedVehicleId: vehicle.id)
+        }
         .sheet(isPresented: $showAddInspection) {
-            InspectionReportFormView()
+            InspectionReportFormView(preselectedVehicleId: vehicle.id)
         }
         .sheet(isPresented: $showSaleFile) {
             SaleFileView(vehicle: vehicle)
@@ -174,6 +201,118 @@ struct VehicleDetailView: View {
             Button("İptal", role: .cancel) {}
         } message: {
             Text("Bu işlem geri alınamaz. Araca ait tüm hatırlatıcılar, masraflar, bakım kayıtları, belgeler ve ekspertiz raporları kalıcı olarak silinir.")
+        }
+    }
+
+    // MARK: - Arvia Rehber
+    private var arviaGuideSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                Text("Arvia Rehber")
+                    .font(AppTypography.sectionTitle)
+                    .foregroundColor(AppColors.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+
+                Text("Aracının kayıtlarına göre bakım, belge ve satış hazırlığı önerileri.")
+                    .font(AppTypography.secondary)
+                    .foregroundColor(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if guideInsights.isEmpty {
+                HStack(alignment: .top, spacing: AppSpacing.sm) {
+                    Image(systemName: "checkmark.seal")
+                        .foregroundColor(AppColors.success)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                        Text("Şimdilik öne çıkan öneri yok")
+                            .font(AppTypography.bodyMedium)
+                            .foregroundColor(AppColors.textPrimary)
+                        Text("Kayıt ekledikçe Arvia Rehber genel önerilerini burada günceller.")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    Spacer()
+                }
+                .padding(AppSpacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: AppRadius.card)
+                        .fill(Color.appSurface)
+                )
+                .subtleShadow()
+            } else {
+                VStack(spacing: AppSpacing.sm) {
+                    ForEach(guideInsights) { insight in
+                        ArviaGuideCard(
+                            insight: insight,
+                            primaryAction: { handleGuideAction(insight.action) },
+                            dismissAction: {
+                                dismissedGuideInsightIDs.insert(insight.id)
+                            }
+                        )
+                    }
+                }
+            }
+
+            arviaGuideProTeaser
+            arviaGuideDisclaimer
+        }
+    }
+
+    private var arviaGuideProTeaser: some View {
+        HStack(alignment: .top, spacing: AppSpacing.sm) {
+            Image(systemName: "sparkles")
+                .foregroundColor(AppColors.accentPrimary)
+                .frame(width: 28)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                Text("Arvia Rehber Pro yakında")
+                    .font(AppTypography.captionMedium)
+                    .foregroundColor(AppColors.textPrimary)
+                Text("Belgeleri özetleme, servis öncesi not hazırlama ve detaylı bakım önerileri ileride Arvia Pro ile sunulabilir.")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+        }
+        .padding(AppSpacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.medium)
+                .fill(AppColors.accentPrimary.opacity(0.06))
+        )
+        .accessibilityElement(children: .combine)
+    }
+
+    private var arviaGuideDisclaimer: some View {
+        HStack(alignment: .top, spacing: AppSpacing.xs) {
+            Image(systemName: "info.circle.fill")
+                .font(.caption)
+                .foregroundColor(AppColors.warning)
+                .accessibilityHidden(true)
+            Text("Arvia Rehber, araç kayıtlarına göre genel öneriler sunar. Teknik teşhis, ekspertiz veya servis görüşü yerine geçmez.")
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func handleGuideAction(_ action: VehicleInsightAction) {
+        switch action {
+        case .addServiceRecord:
+            showAddServiceRecord = true
+        case .addDocument:
+            showAddDocument = true
+        case .openSaleFile:
+            handleSaleFileTap()
+        case .updateOdometer:
+            showEditSheet = true
+        case .openTodos:
+            navigationRouter.selectedTab = .todos
+        case .addInspectionReport:
+            showAddInspection = true
         }
     }
 

@@ -29,6 +29,7 @@
 		BRNDNTRVBRNDNTRVBRNDNTRV /* BrandIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BRNDNTRRBRNDNTRRBRNDNTRR /* BrandIntroView.swift */; };
 		E46A5A632F95865F5B6B2AFB /* ContextualTipBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A3E83514B5CDEC58D3BFAA /* ContextualTipBanner.swift */; };
 		559086DD7D8C5D4B99927AA6 /* DosyaniTamamlaChecklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C82804E9789E31D4DFB0CF6 /* DosyaniTamamlaChecklist.swift */; };
+		A11B22C33D44E55F66A77B06 /* ArviaGuideCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11B22C33D44E55F66A77B05 /* ArviaGuideCard.swift */; };
 		938AB55FE3448B27D70E566C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78599DD92099ED5CA8E93AF /* OnboardingView.swift */; };
 		F2A0D17DBF97281937D9318F /* TodosView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B4A47D3ECE9D5555483AAB3 /* TodosView.swift */; };
 		5074FE1D88DDA200D84D9582 /* ReminderDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB7348B6E78A0AF27914E839 /* ReminderDetailView.swift */; };
@@ -73,6 +74,8 @@
 		8D72147ECB53A4AC3E2D4DCF /* CommunityModerationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90533F411C469C215397BF9A /* CommunityModerationView.swift */; };
 		90472D5EF3F44BE88AED1399 /* PaywallService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F046CE22CAFC48EF885F1813 /* PaywallService.swift */; };
 		9BCDECEC7EDCE7BB35E8AE29 /* CommunityPostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A94F45A97B502D5EBCF9228B /* CommunityPostDetailView.swift */; };
+		A11B22C33D44E55F66A77B02 /* VehicleInsight.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11B22C33D44E55F66A77B01 /* VehicleInsight.swift */; };
+		A11B22C33D44E55F66A77B04 /* VehicleInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11B22C33D44E55F66A77B03 /* VehicleInsightService.swift */; };
 		A3FABD5A562C487CB63744EE /* InspectionReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582BAA7536C7462E88C7F60F /* InspectionReportView.swift */; };
 		AA1F28D1F7AA45BDAD1A33AB /* SaleFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19373C4936A4A80A33AE072 /* SaleFile.swift */; };
 		AC350C7B52C3C091CEDBD142 /* ReportReasonSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3B5437AE1506219424594F /* ReportReasonSheet.swift */; };
@@ -180,6 +183,9 @@
 		9A3A76F4FA6D84C19DABB119 /* CommunityEnums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityEnums.swift; sourceTree = "<group>"; };
 		9F81980CF1CDCF05F6B2A19A /* Configuration/Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration/Config.xcconfig; sourceTree = SOURCE_ROOT; };
 		A2AE0C3029E54EBAAD6EBFF8 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
+		A11B22C33D44E55F66A77B01 /* VehicleInsight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleInsight.swift; sourceTree = "<group>"; };
+		A11B22C33D44E55F66A77B03 /* VehicleInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleInsightService.swift; sourceTree = "<group>"; };
+		A11B22C33D44E55F66A77B05 /* ArviaGuideCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArviaGuideCard.swift; sourceTree = "<group>"; };
 		A3B8BC17A37049A0A62C69FE /* Ruhsatim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ruhsatim.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A514505F7D9B40E78B4F5270 /* RuhsatimTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RuhsatimTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A62F298D91FC44A895A9B49D /* RecordsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsView.swift; sourceTree = "<group>"; };
@@ -355,6 +361,7 @@
 				AA3B311C36494DCA985B4932 /* ServiceRecord.swift */,
 				B19373C4936A4A80A33AE072 /* SaleFile.swift */,
 				BCDA6923153449448599B46A /* Vehicle.swift */,
+				A11B22C33D44E55F66A77B01 /* VehicleInsight.swift */,
 				C8FFDAA0779F49F26FB74BF1 /* AppBrand.swift */,
 				E48F6D07AC53488B9D3CCFD2 /* Reminder.swift */,
 			);
@@ -489,6 +496,7 @@
 				BRNDNTRRBRNDNTRRBRNDNTRR /* BrandIntroView.swift */,
 				D2A3E83514B5CDEC58D3BFAA /* ContextualTipBanner.swift */,
 				5C82804E9789E31D4DFB0CF6 /* DosyaniTamamlaChecklist.swift */,
+				A11B22C33D44E55F66A77B05 /* ArviaGuideCard.swift */,
 				86FDB0BC84684A08AF49E08A /* VehicleCard.swift */,
 				AE62D7B7FDAE440B9176077B /* EmptyStateView.swift */,
 			);
@@ -507,6 +515,7 @@
 				F36BED4AAE2741B7962E8682 /* PDFExportService.swift */,
 				6D6D76344B3F47E7AF65D4C9 /* DemoDataSeeder.swift */,
 				CCAT0001CCAT0001CCAT0001 /* CarCatalogService.swift */,
+				A11B22C33D44E55F66A77B03 /* VehicleInsightService.swift */,
 				80E7B058261181D37B36F7C8 /* CommunityAuthService.swift */,
 				64BE9314E675A029DA58430B /* SupabaseClientProvider.swift */,
 				057834D6DB120B50E147467B /* SupabaseConfig.swift */,
@@ -684,6 +693,7 @@
 				BRNDNTRVBRNDNTRVBRNDNTRV /* BrandIntroView.swift in Sources */,
 				E46A5A632F95865F5B6B2AFB /* ContextualTipBanner.swift in Sources */,
 				559086DD7D8C5D4B99927AA6 /* DosyaniTamamlaChecklist.swift in Sources */,
+				A11B22C33D44E55F66A77B06 /* ArviaGuideCard.swift in Sources */,
 				938AB55FE3448B27D70E566C /* OnboardingView.swift in Sources */,
 				62CFD3078AB54AE98354161B /* GarageView.swift in Sources */,
 				85B909F0A3694236A7C09766 /* VehicleFormView.swift in Sources */,
@@ -718,6 +728,7 @@
 				0377C4DD607644008D0C299D /* VehicleDocument.swift in Sources */,
 				08212E42D5A947AFB3017AD3 /* InspectionReport.swift in Sources */,
 				AA1F28D1F7AA45BDAD1A33AB /* SaleFile.swift in Sources */,
+				A11B22C33D44E55F66A77B02 /* VehicleInsight.swift in Sources */,
 				301518BA95E44FD5A134BF8C /* MockDataProvider.swift in Sources */,
 				8C15C2B755734A889A5BA976 /* NotificationService.swift in Sources */,
 				D95D8065ACD04ED7986CF967 /* DocumentStorageService.swift in Sources */,
@@ -728,6 +739,7 @@
 				CCAT0002CCAT0002CCAT0002 /* CarCatalogService.swift in Sources */,
 				69FF034D0EAD433D956BFDCE /* ReminderRepeatEngine.swift in Sources */,
 				7F96351DFBC84210971A9939 /* RetentionNotificationService.swift in Sources */,
+				A11B22C33D44E55F66A77B04 /* VehicleInsightService.swift in Sources */,
 				FA0EC5BDE270E1A661988B3B /* CommunityCreatePostView.swift in Sources */,
 				39762DB519787236282EFDF1 /* CommunityFeedView.swift in Sources */,
 				8D72147ECB53A4AC3E2D4DCF /* CommunityModerationView.swift in Sources */,
