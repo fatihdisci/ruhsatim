@@ -260,7 +260,7 @@ struct VehicleEditView: View {
                                 Label("Fotoğrafı Değiştir", systemImage: "arrow.triangle.2.circlepath")
                                     .font(AppTypography.secondary)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.borderless)
                             .foregroundColor(AppColors.accentPrimary)
 
                             Button(role: .destructive) {
@@ -269,7 +269,7 @@ struct VehicleEditView: View {
                                 Label("Fotoğrafı Sil", systemImage: "trash")
                                     .font(AppTypography.secondary)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.borderless)
                         }
                     } else {
                         // Fotoğraf yok — ekle butonu
@@ -286,7 +286,7 @@ struct VehicleEditView: View {
                                 Spacer()
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.borderless)
                     }
 
                     if let error = photoError {
@@ -524,6 +524,7 @@ struct VehicleEditView: View {
                     throw VehiclePhotoSelectionError.decodeFailed
                 }
                 await MainActor.run {
+                    selectedPhotoItem = nil
                     selectedPhotoImage = image
                     photoError = nil
                 }

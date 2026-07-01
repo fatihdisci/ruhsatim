@@ -13,6 +13,7 @@ struct SettingsView: View {
     @EnvironmentObject private var communityAuth: CommunityAuthService
 
     @State private var showPaywall = false
+    @State private var showSignOutConfirmation = false
     @State private var showDeleteAllConfirmation = false
     @State private var showDeleteAccountConfirmation = false
     @State private var isDeletingAccount = false
@@ -64,6 +65,14 @@ struct SettingsView: View {
             .sheet(isPresented: $showPaywall) {
                 PaywallView(feature: .secondVehicle)
             }
+            .confirmationDialog("Çıkış Yap", isPresented: $showSignOutConfirmation) {
+                Button("Çıkış Yap", role: .destructive) {
+                    Task { await signOut() }
+                }
+                Button("İptal", role: .cancel) {}
+            } message: {
+                Text("Oturumun kapatılacak. Yerel verilerin (araçlar, masraflar, belgeler) silinmez. Topluluk özelliklerini kullanmak için tekrar giriş yapabilirsin.")
+            }
             .confirmationDialog("Tüm Verileri Sil", isPresented: $showDeleteAllConfirmation) {
                 Button("Tüm Verileri Sil", role: .destructive) { deleteAllData() }
                 Button("İptal", role: .cancel) {}
@@ -71,12 +80,12 @@ struct SettingsView: View {
                 Text("Bu işlem geri alınamaz. Tüm araçlar, hatırlatıcılar, masraflar, bakım kayıtları, belgeler ve raporlar kalıcı olarak silinir.")
             }
             .confirmationDialog("Hesabı ve verileri sil?", isPresented: $showDeleteAccountConfirmation) {
-                Button("Sil", role: .destructive) {
+                Button("Hesabı Kalıcı Olarak Sil", role: .destructive) {
                     Task { await deleteAccountAndData() }
                 }
                 Button("Vazgeç", role: .cancel) {}
             } message: {
-                Text("Bu işlem yerel araç kayıtlarını, belgeleri ve topluluk profil bilgilerini silebilir. Bu işlem geri alınamaz.")
+                Text("Tüm verilerin kalıcı olarak silinecek: araçlar, belgeler, topluluk gönderileri, yorumlar, beğeniler ve profil bilgilerin. Apple ile tekrar giriş yaptığında sıfırdan bir kullanıcı olarak başlarsın. Bu işlem GERİ ALINAMAZ.")
             }
             .sheet(isPresented: $showShareSheet) {
                 if let url = exportURL {
@@ -273,6 +282,12 @@ struct SettingsView: View {
             }
 
             if communityAuth.isAuthenticated {
+                Button(role: .destructive) {
+                    showSignOutConfirmation = true
+                } label: {
+                    Label("Çıkış Yap", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+
                 Button(role: .destructive) {
                     showDeleteAccountConfirmation = true
                 } label: {
@@ -560,6 +575,11 @@ struct SettingsView: View {
         // Dev mode'da Pro'yu sıfırla
         paywallService.disableProForDev()
 
+        dismiss()
+    }
+
+    private func signOut() async {
+        await communityAuth.signOut()
         dismiss()
     }
 }

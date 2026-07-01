@@ -313,6 +313,48 @@ BEGIN
 END;
 $$;
 
+-- ----------------------------------------------------------------------------
+-- 4.7: delete_community_account_full — Kullanıcıyı tamamen sil (auth + tüm veriler)
+-- ----------------------------------------------------------------------------
+-- Kullanıcı "Hesabı ve Verileri Sil" dediğinde:
+--   - Tüm postları, yorumları, beğenileri, kayıtları, şikayetleri, engellemeleri
+--   - community_moderation_actions kayıtlarını
+--   - Profili
+--   - auth.users kaydını siler (Apple ile tekrar girişte sıfırdan başlar)
+
+CREATE OR REPLACE FUNCTION delete_community_account_full()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Oturum bulunamadı.';
+  END IF;
+
+  DELETE FROM community_moderation_actions WHERE actor_id = v_uid;
+  DELETE FROM community_blocks WHERE blocker_id = v_uid OR blocked_id = v_uid;
+  DELETE FROM community_reports WHERE reporter_id = v_uid;
+  UPDATE community_reports SET reviewer_id = NULL WHERE reviewer_id = v_uid;
+  DELETE FROM community_post_likes WHERE user_id = v_uid;
+  DELETE FROM community_post_saves WHERE user_id = v_uid;
+  UPDATE community_moderation_actions
+    SET comment_id = NULL
+    WHERE comment_id IN (SELECT id FROM community_comments WHERE author_id = v_uid);
+  DELETE FROM community_comments WHERE author_id = v_uid;
+  UPDATE community_moderation_actions
+    SET post_id = NULL
+    WHERE post_id IN (SELECT id FROM community_posts WHERE author_id = v_uid);
+  DELETE FROM community_posts WHERE author_id = v_uid;
+  DELETE FROM profiles WHERE id = v_uid;
+  DELETE FROM auth.users WHERE id = v_uid;
+END;
+$$;
+
 -- ============================================================================
 -- BÖLÜM 5: Tablo bazında UPDATE yetkisi (RLS güvenlik ağı)
 -- ============================================================================

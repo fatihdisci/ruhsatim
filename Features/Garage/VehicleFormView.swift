@@ -37,6 +37,12 @@ struct VehicleFormView: View {
     @State private var isCustomBrand = false
     @State private var isCustomModel = false
 
+    // MARK: Purchase info (optional)
+    @State private var addPurchaseInfo = false
+    @State private var purchaseDate = Date()
+    @State private var purchaseOdometerText = ""
+    @State private var purchasePriceText = ""
+
     // MARK: First reminders (optional)
     @State private var addInspectionReminder = false
     @State private var inspectionDate = Calendar.current.date(byAdding: .year, value: 2, to: Date()) ?? Date()
@@ -79,6 +85,7 @@ struct VehicleFormView: View {
                     motorcycleSection
                 }
                 optionalSection
+                purchaseInfoSection
                 firstRemindersSection
 
                 if showErrors && !validationErrors.isEmpty {
@@ -312,9 +319,8 @@ struct VehicleFormView: View {
                             .font(.caption)
                             .foregroundColor(AppColors.textTertiary)
                     }
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
 
                 if let error = photoError {
                     Text(error)
@@ -324,6 +330,51 @@ struct VehicleFormView: View {
             }
         } header: {
             Text("İsteğe Bağlı")
+        }
+        .listRowBackground(Color.appSurface)
+    }
+
+    // MARK: - Purchase Info Section
+    private var purchaseInfoSection: some View {
+        Section {
+            Toggle(isOn: $addPurchaseInfo) {
+                Label("Satın Alma Bilgisi Ekle", systemImage: "cart")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textPrimary)
+            }
+            .tint(AppColors.accentPrimary)
+
+            if addPurchaseInfo {
+                DatePicker(selection: $purchaseDate, displayedComponents: .date) {
+                    Label("Satın Alma Tarihi", systemImage: "calendar")
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textPrimary)
+                }
+
+                HStack(spacing: AppSpacing.sm) {
+                    Image(systemName: "gauge.with.needle")
+                        .font(.body)
+                        .foregroundColor(AppColors.textTertiary)
+                        .frame(width: 24)
+                    TextField("Satın Alma Km (isteğe bağlı)", text: $purchaseOdometerText)
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textPrimary)
+                        .keyboardType(.numberPad)
+                }
+
+                HStack(spacing: AppSpacing.sm) {
+                    Image(systemName: "banknote")
+                        .font(.body)
+                        .foregroundColor(AppColors.textTertiary)
+                        .frame(width: 24)
+                    TextField("Satın Alma Fiyatı - ₺ (isteğe bağlı)", text: $purchasePriceText)
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textPrimary)
+                        .keyboardType(.decimalPad)
+                }
+            }
+        } header: {
+            Text("Satın Alma")
         }
         .listRowBackground(Color.appSurface)
     }
@@ -549,6 +600,15 @@ struct VehicleFormView: View {
         return errors
     }
 
+    private var purchaseOdometer: Int? {
+        let text = purchaseOdometerText.trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? nil : Int(text)
+    }
+    private var purchasePrice: Double? {
+        let text = purchasePriceText.trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? nil : Double(text)
+    }
+
     private var engineCC: Int? {
         let text = engineCCText.trimmingCharacters(in: .whitespaces)
         return text.isEmpty ? nil : Int(text)
@@ -578,6 +638,9 @@ struct VehicleFormView: View {
             fuelType: fuelType,
             transmissionType: transmissionType,
             currentOdometer: odometer ?? 0,
+            purchaseDate: addPurchaseInfo ? purchaseDate : nil,
+            purchaseOdometer: addPurchaseInfo ? purchaseOdometer : nil,
+            purchasePrice: addPurchaseInfo ? purchasePrice : nil,
             usageType: usageType,
             notes: "",
             photoFileName: savedPhotoFileName
@@ -664,6 +727,7 @@ struct VehicleFormView: View {
                     throw VehiclePhotoSelectionError.decodeFailed
                 }
                 await MainActor.run {
+                    selectedPhotoItem = nil
                     selectedPhotoImage = image
                     photoError = nil
                 }
