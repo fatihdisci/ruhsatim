@@ -14,6 +14,8 @@ struct ReminderListView: View {
     @State private var showAddReminder = false
     @State private var notificationPermissionRequested = false
 
+    var showHeader: Bool = true
+
     // Gruplandırılmış ve filtrelenmiş
     private var activeReminders: [Reminder] {
         allReminders.filter {
@@ -75,58 +77,72 @@ struct ReminderListView: View {
 
     // MARK: - Summary Module
     private var summaryModule: some View {
-        HStack(spacing: AppSpacing.md) {
+        HStack(spacing: 0) {
             summaryItem(
                 count: overdueCount,
                 label: "Geciken",
                 icon: "exclamationmark.triangle.fill",
-                color: AppColors.critical
+                color: overdueCount > 0 ? AppColors.critical : AppColors.textTertiary
             )
+
+            Divider()
+                .frame(height: 40)
+
             summaryItem(
                 count: todayCount,
                 label: "Bugün",
                 icon: "clock.fill",
-                color: AppColors.warning
+                color: todayCount > 0 ? AppColors.warning : AppColors.textTertiary
             )
+
+            Divider()
+                .frame(height: 40)
+
             summaryItem(
                 count: next30DaysCount,
                 label: "30 Gün",
                 icon: "calendar.badge.clock",
-                color: AppColors.accentPrimary
+                color: next30DaysCount > 0 ? AppColors.accentPrimary : AppColors.textTertiary
             )
         }
-        .padding(.vertical, AppSpacing.xs)
+        .padding(.vertical, AppSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.medium, style: .continuous)
+                .fill(Color.appSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.medium, style: .continuous)
+                .stroke(AppColors.border.opacity(0.42), lineWidth: 0.5)
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Önümüzdeki 30 gün: \(next30DaysCount) hatırlatıcı. Geciken: \(overdueCount). Bugün: \(todayCount).")
     }
 
     private func summaryItem(count: Int, label: String, icon: String, color: Color) -> some View {
         VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(color)
-            Text("\(count)")
-                .font(AppTypography.amount)
-                .foregroundColor(AppColors.textPrimary)
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(color)
+                Text("\(count)")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(AppColors.textPrimary)
+                    .monospacedDigit()
+            }
             Text(label)
-                .font(AppTypography.caption)
+                .font(AppTypography.captionMedium)
                 .foregroundColor(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, AppSpacing.xs)
-        .background(
-            RoundedRectangle(cornerRadius: AppRadius.medium)
-                .fill(color.opacity(0.06))
-        )
     }
 
     // MARK: - Empty State
     private var emptyState: some View {
         EmptyStateView(
-            icon: "checklist",
-            title: "Yaklaşan iş yok",
+            icon: "calendar.badge.clock",
+            title: "Şu anda takip etmen gereken bir araç işi yok.",
             description: "Muayene, sigorta, bakım ve MTV gibi tarihleri ekleyerek aracını düzenli takip edebilirsin.",
-            actionTitle: "Yapılacak Ekle",
+            actionTitle: "Hatırlatıcı Ekle",
             action: { showAddReminder = true }
         )
     }
@@ -134,9 +150,26 @@ struct ReminderListView: View {
     // MARK: - List Content
     private var reminderListContent: some View {
         List {
+            // Screen header description when used standalone (e.g. İşler tab)
+            if showHeader {
+                Section {
+                    VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                        Text("Geciken, bugün ve yaklaşan araç işlerini öncelik sırasıyla takip et.")
+                            .font(AppTypography.secondary)
+                            .foregroundColor(AppColors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.vertical, AppSpacing.xxs)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
             // Üst özet modülü
             Section {
                 summaryModule
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
 
             if !overdueReminders.isEmpty {
@@ -214,15 +247,18 @@ struct ReminderListView: View {
                 }
             }
         } header: {
-            HStack(spacing: AppSpacing.xxs) {
+            HStack(spacing: AppSpacing.xs) {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .font(.caption.weight(.semibold))
                 Text(title)
+                    .font(AppTypography.bodyMedium)
+                    .fontWeight(.medium)
                 Text("· \(reminders.count)")
+                    .font(AppTypography.caption)
                     .foregroundColor(AppColors.textTertiary)
             }
-            .font(AppTypography.captionMedium)
             .foregroundColor(color)
+            .textCase(nil)
         }
     }
 
@@ -291,92 +327,66 @@ struct ReminderRow: View {
 
     var body: some View {
         HStack(spacing: AppSpacing.sm) {
-            // İkon
-            Image(systemName: reminder.type.defaultIcon)
-                .font(.body)
-                .foregroundColor(statusColor)
-                .frame(width: 32, height: 32)
-                .background(
-                    Circle()
-                        .fill(statusColor.opacity(0.12))
-                )
+            // Tip ikonu — daha belirgin araç bağlamı
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.1))
+                    .frame(width: 38, height: 38)
+
+                Image(systemName: reminder.type.defaultIcon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(statusColor)
+            }
 
             // İçerik
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(reminder.title)
                     .font(AppTypography.bodyMedium)
                     .foregroundColor(AppColors.textPrimary)
+                    .lineLimit(1)
 
-                HStack(spacing: AppSpacing.xxs) {
+                HStack(spacing: 4) {
+                    // Araç plakası — otomotiv bağlamı
                     if let vehicle {
+                        Image(systemName: "car.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(AppColors.textTertiary)
                         Text(vehicle.plate.isEmpty ? vehicle.fullName : vehicle.plate)
                             .font(AppTypography.caption)
                             .foregroundColor(AppColors.textTertiary)
-                    }
-
-                    if let dueDate = reminder.dueDate {
-                        if vehicle != nil {
-                            Text("·")
-                                .foregroundColor(AppColors.textTertiary)
-                        }
-                        Text(dueDate.formatted(date: .abbreviated, time: .omitted))
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.textTertiary)
-                    }
-
-                    if let dueKm = reminder.dueOdometer {
-                        Text("·")
-                            .foregroundColor(AppColors.textTertiary)
-                        Text("\(dueKm.formatted()) km")
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.textTertiary)
+                            .lineLimit(1)
+                            .layoutPriority(1)
                     }
                 }
             }
 
-            Spacer()
+            Spacer(minLength: AppSpacing.sm)
 
             // Durum etiketi
             statusBadge
         }
-        .padding(.vertical, AppSpacing.xxs)
+        .padding(.vertical, AppSpacing.xs)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(reminder.title), \(statusText)")
     }
 
+    /// Öncelik/gecikme bazlı renk
     private var statusColor: Color {
-        if reminder.statusRaw == ReminderStatus.completed.rawValue {
-            return AppColors.success
-        }
-        if reminder.isOverdue {
-            return AppColors.critical
-        }
-        if let vehicle, reminder.isKmOverdue(vehicleOdometer: vehicle.currentOdometer) {
-            return AppColors.critical
-        }
-        if reminder.isToday {
-            return AppColors.warning
-        }
-        if let vehicle, reminder.isKmUpcoming(vehicleOdometer: vehicle.currentOdometer) {
-            return AppColors.warning
-        }
+        if reminder.isOverdue { return AppColors.critical }
+        if let vehicle, reminder.isKmOverdue(vehicleOdometer: vehicle.currentOdometer) { return AppColors.critical }
+        if reminder.isToday { return AppColors.warning }
+        if let vehicle, reminder.isKmUpcoming(vehicleOdometer: vehicle.currentOdometer) { return AppColors.warning }
         return AppColors.accentPrimary
     }
 
+    /// Durum metni — tek kaynak, çiftlenme yok
     private var statusText: String {
-        if reminder.statusRaw == ReminderStatus.completed.rawValue {
-            return "Tamamlandı"
-        }
-        if reminder.isOverdue {
-            return "\(reminder.daysOverdue) gün gecikti"
-        }
+        if reminder.isOverdue { return "\(reminder.daysOverdue) gün gecikti" }
         if let vehicle, reminder.isKmOverdue(vehicleOdometer: vehicle.currentOdometer) {
             let exceeded = vehicle.currentOdometer - (reminder.dueOdometer ?? 0)
             return "\(exceeded.formatted()) km gecikti"
         }
-        if reminder.isToday {
-            return "Bugün"
-        }
+        if reminder.isToday { return "Bugün" }
         if let vehicle, reminder.isKmUpcoming(vehicleOdometer: vehicle.currentOdometer) {
             let remaining = (reminder.dueOdometer ?? 0) - vehicle.currentOdometer
             return "\(remaining.formatted()) km kaldı"
@@ -384,16 +394,39 @@ struct ReminderRow: View {
         return "\(reminder.daysRemaining) gün kaldı"
     }
 
+    /// Km tipi durumlar için özel rozet
+    private var isKmBased: Bool {
+        reminder.dueOdometer != nil
+    }
+
+    @ViewBuilder
     private var statusBadge: some View {
-        Text(statusText)
-            .font(.system(size: 11, weight: .medium))
+        if isKmBased && !reminder.isOverdue && !reminder.isToday {
+            // Km bazlı — daha teknik rozet
+            HStack(spacing: 3) {
+                Image(systemName: "gauge.with.needle")
+                    .font(.system(size: 9, weight: .semibold))
+                Text(statusText)
+                    .font(.system(size: 12, weight: .medium))
+            }
             .foregroundColor(statusColor)
-            .padding(.horizontal, AppSpacing.xs)
-            .padding(.vertical, 3)
+            .padding(.horizontal, AppSpacing.sm)
+            .padding(.vertical, 4)
             .background(
                 Capsule()
-                    .fill(statusColor.opacity(0.12))
+                    .fill(statusColor.opacity(0.1))
             )
+        } else {
+            Text(statusText)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(statusColor)
+                .padding(.horizontal, AppSpacing.sm)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(statusColor.opacity(0.1))
+                )
+        }
     }
 }
 
@@ -407,4 +440,10 @@ struct ReminderRow: View {
     ReminderListView()
         .modelContainer(MockDataProvider.previewContainer)
         .preferredColorScheme(.dark)
+}
+
+#Preview("Hatırlatıcı Listesi — Dinamik Tip") {
+    ReminderListView()
+        .modelContainer(MockDataProvider.previewContainer)
+        .environment(\.dynamicTypeSize, .accessibility1)
 }

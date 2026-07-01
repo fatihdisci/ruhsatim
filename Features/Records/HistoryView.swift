@@ -4,7 +4,7 @@ import QuickLook
 
 // MARK: - Geçmiş (History) Tab
 // Bakım, masraf, belge ve ekspertiz geçmiş kayıtları.
-// Filtre: Tümü, Masraflar, Bakımlar, Belgeler, Ekspertiz
+// Araç arşivi hissi — düzenli, taranabilir, premium.
 
 struct HistoryView: View {
     @Environment(\.modelContext) private var modelContext
@@ -54,9 +54,49 @@ struct HistoryView: View {
         }
     }
 
+    // MARK: - Zaman Dilimi Gruplaması
+    private enum TimePeriod: String, CaseIterable, Comparable {
+        case thisWeek
+        case thisMonth
+        case lastMonth
+        case older
+
+        var displayName: String {
+            switch self {
+            case .thisWeek: return "Bu Hafta"
+            case .thisMonth: return "Bu Ay"
+            case .lastMonth: return "Geçen Ay"
+            case .older: return "Daha Eski"
+            }
+        }
+
+        static func < (lhs: TimePeriod, rhs: TimePeriod) -> Bool {
+            let order: [TimePeriod] = [.thisWeek, .thisMonth, .lastMonth, .older]
+            return (order.firstIndex(of: lhs) ?? 0) < (order.firstIndex(of: rhs) ?? 0)
+        }
+    }
+
+    private func periodForDate(_ date: Date) -> TimePeriod {
+        let calendar = Calendar.current
+        if calendar.isDate(date, equalTo: Date(), toGranularity: .weekOfYear) {
+            return .thisWeek
+        }
+        if calendar.isDate(date, equalTo: Date(), toGranularity: .month) {
+            return .thisMonth
+        }
+        if let lastMonth = calendar.date(byAdding: .month, value: -1, to: Date()),
+           calendar.isDate(date, equalTo: lastMonth, toGranularity: .month) {
+            return .lastMonth
+        }
+        return .older
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                // Ekran başlığı
+                headerSection
+
                 // Filtre çipleri
                 filterRail
                 dateFilterRail
@@ -71,7 +111,7 @@ struct HistoryView: View {
                 }
                 .background(Color.appBackground)
             }
-            .navigationTitle("Geçmiş")
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -109,18 +149,34 @@ struct HistoryView: View {
         }
     }
 
+    // MARK: - Header
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            Text("Geçmiş")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(AppColors.textPrimary)
+
+            Text("Bakım, masraf, belge ve tamamlanan işleri tek arşivde gör.")
+                .font(AppTypography.secondary)
+                .foregroundColor(AppColors.textSecondary)
+        }
+        .padding(.horizontal, AppSpacing.screenMarginH)
+        .padding(.top, AppSpacing.md)
+        .padding(.bottom, AppSpacing.xxs)
+    }
+
     // MARK: - Filter Rails
     private var filterRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: AppSpacing.xs) {
+            HStack(spacing: AppSpacing.sm) {
                 ForEach(HistoryFilter.allCases, id: \.self) { filter in
                     Button {
                         selectedFilter = filter
                     } label: {
                         Text(filter.rawValue)
-                            .font(AppTypography.captionMedium)
+                            .font(selectedFilter == filter ? .system(size: 14, weight: .semibold) : AppTypography.captionMedium)
                             .foregroundColor(selectedFilter == filter ? .white : AppColors.textSecondary)
-                            .padding(.horizontal, AppSpacing.sm)
+                            .padding(.horizontal, AppSpacing.md)
                             .padding(.vertical, AppSpacing.xs)
                             .background(
                                 Capsule()
@@ -131,11 +187,10 @@ struct HistoryView: View {
                 }
             }
             .padding(.horizontal, AppSpacing.screenMarginH)
-            .padding(.vertical, AppSpacing.xs)
+            .padding(.vertical, AppSpacing.xxs)
         }
     }
 
-    // MARK: - Date Range Filter Rail
     private var dateFilterRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: AppSpacing.xs) {
@@ -144,17 +199,17 @@ struct HistoryView: View {
                         selectedDateRange = range
                     } label: {
                         Text(range.rawValue)
-                            .font(AppTypography.caption)
+                            .font(.system(size: 13, weight: selectedDateRange == range ? .semibold : .regular))
                             .foregroundColor(selectedDateRange == range ? AppColors.accentPrimary : AppColors.textTertiary)
                             .padding(.horizontal, AppSpacing.sm)
-                            .padding(.vertical, AppSpacing.xxs)
+                            .padding(.vertical, AppSpacing.xs)
                             .background(
                                 Capsule()
-                                    .stroke(selectedDateRange == range ? AppColors.accentPrimary : Color.clear, lineWidth: 1)
-                                    .background(
-                                        Capsule()
-                                            .fill(selectedDateRange == range ? AppColors.accentPrimary.opacity(0.08) : Color.clear)
-                                    )
+                                    .fill(selectedDateRange == range ? AppColors.accentPrimary.opacity(0.1) : Color.clear)
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(selectedDateRange == range ? AppColors.accentPrimary.opacity(0.3) : AppColors.border.opacity(0.3), lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
@@ -199,8 +254,8 @@ struct HistoryView: View {
             case .all:
                 EmptyStateView(
                     icon: "clock.arrow.circlepath",
-                    title: "Henüz geçmiş kaydı yok",
-                    description: "Yaptığın bakımları, masrafları ve belgeleri aracının dijital geçmişi olarak saklayabilirsin.",
+                    title: "Henüz kayıt yok",
+                    description: "Masraf, bakım, belge veya tamamlanan işleri ekledikçe aracının geçmişi burada oluşur.",
                     actionTitle: "İlk Kaydı Ekle",
                     action: { showAddExpense = true }
                 )
@@ -261,54 +316,130 @@ struct HistoryView: View {
         .safeAreaPadding(.bottom, AppSpacing.floatingTabBarContentInset)
     }
 
+    // MARK: - Zaman Dilimi Bölümü
+    @ViewBuilder
+    private func timeGroupedSection<T: Identifiable>(
+        items: [T],
+        dateKey: KeyPath<T, Date>,
+        rowContent: @escaping (T) -> some View
+    ) -> some View {
+        let grouped = Dictionary(grouping: items) { periodForDate($0[keyPath: dateKey]) }
+        ForEach(TimePeriod.allCases, id: \.self) { period in
+            if let periodItems = grouped[period], !periodItems.isEmpty {
+                Section {
+                    ForEach(periodItems) { item in
+                        rowContent(item)
+                    }
+                } header: {
+                    Text(period.displayName)
+                        .font(AppTypography.captionMedium)
+                        .foregroundColor(AppColors.textSecondary)
+                        .textCase(nil)
+                }
+            }
+        }
+    }
+
     // MARK: - Timeline (Tümü)
     private var historyTimelineSection: some View {
         let items = buildTimeline()
-        return ForEach(items) { item in
-            HStack(spacing: AppSpacing.sm) {
-                Image(systemName: item.icon)
-                    .font(.subheadline)
-                    .foregroundColor(item.color)
-                    .frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title)
-                        .font(AppTypography.secondary)
-                        .foregroundColor(AppColors.textPrimary)
-                    Text(item.subtitle)
-                        .font(AppTypography.caption)
+        let grouped = Dictionary(grouping: items) { periodForDate($0.date) }
+        return ForEach(TimePeriod.allCases, id: \.self) { period in
+            if let periodItems = grouped[period], !periodItems.isEmpty {
+                Section {
+                    ForEach(periodItems) { item in
+                        HStack(spacing: AppSpacing.sm) {
+                            Image(systemName: item.icon)
+                                .font(.subheadline)
+                                .foregroundColor(item.color)
+                                .frame(width: 28)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(item.title)
+                                    .font(AppTypography.secondary)
+                                    .foregroundColor(AppColors.textPrimary)
+                                    .lineLimit(1)
+                                HStack(spacing: 4) {
+                                    if !item.subtitle.isEmpty {
+                                        Text(item.subtitle)
+                                            .font(AppTypography.caption)
+                                            .foregroundColor(AppColors.textTertiary)
+                                            .lineLimit(1)
+                                    }
+                                    if !item.plateText.isEmpty {
+                                        if !item.subtitle.isEmpty {
+                                            Text("·")
+                                                .font(.caption)
+                                                .foregroundColor(AppColors.textTertiary.opacity(0.4))
+                                        }
+                                        Text(item.plateText)
+                                            .font(AppTypography.caption)
+                                            .foregroundColor(AppColors.textTertiary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                            }
+                            Spacer()
+                            Text(item.dateDisplay)
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textTertiary)
+                        }
+                        .padding(.vertical, AppSpacing.xxs)
+                    }
+                } header: {
+                    Text(period.displayName)
+                        .font(AppTypography.captionMedium)
                         .foregroundColor(AppColors.textSecondary)
+                        .textCase(nil)
                 }
-                Spacer()
-                Text(item.dateDisplay)
-                    .font(AppTypography.caption)
-                    .foregroundColor(AppColors.textTertiary)
             }
-            .padding(.vertical, AppSpacing.xxs)
         }
     }
 
     // MARK: - Expense Section
     private var expenseSection: some View {
-        ForEach(allExpenses.filter { isWithinDateRange($0.date) }) { expense in
+        let filtered = allExpenses.filter { isWithinDateRange($0.date) }
+        return timeGroupedSection(items: filtered, dateKey: \.date) { expense in
             Button {
                 editingExpense = expense
             } label: {
                 HStack(spacing: AppSpacing.sm) {
                     Image(systemName: expense.category.defaultIcon)
-                        .foregroundColor(AppColors.accentPrimary).frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
+                        .foregroundColor(AppColors.accentPrimary)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(expense.category.displayName)
-                            .font(AppTypography.secondary).foregroundColor(AppColors.textPrimary)
-                        if let vendor = expense.vendorName, !vendor.isEmpty {
-                            Text(vendor).font(AppTypography.caption).foregroundColor(AppColors.textTertiary)
+                            .font(AppTypography.secondary)
+                            .foregroundColor(AppColors.textPrimary)
+                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            if let vehicle = vehicleFor(id: expense.vehicleId) {
+                                Text(vehicle.plate.isEmpty ? vehicle.fullName : vehicle.plate)
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textTertiary)
+                                    .lineLimit(1)
+                            }
+                            if let vendor = expense.vendorName, !vendor.isEmpty {
+                                if vehicleFor(id: expense.vehicleId) != nil {
+                                    Text("·")
+                                        .font(.caption)
+                                        .foregroundColor(AppColors.textTertiary.opacity(0.4))
+                                }
+                                Text(vendor)
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textTertiary)
+                                    .lineLimit(1)
+                            }
                         }
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(expense.amountCompactDisplay)
-                            .font(AppTypography.bodyMedium).foregroundColor(AppColors.textPrimary)
+                            .font(AppTypography.bodyMedium)
+                            .foregroundColor(AppColors.textPrimary)
+                            .monospacedDigit()
                         Text(expense.dateDisplay)
-                            .font(AppTypography.caption).foregroundColor(AppColors.textTertiary)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textTertiary)
                     }
                 }
             }
@@ -316,34 +447,61 @@ struct HistoryView: View {
             .padding(.vertical, AppSpacing.xxs)
             .swipeActions(edge: .trailing) { swipeDeleteButton(expense) }
             .swipeActions(edge: .leading) {
-                Button { editingExpense = expense } label: { Label("Düzenle", systemImage: "pencil") }.tint(AppColors.accentPrimary)
+                Button { editingExpense = expense } label: {
+                    Label("Düzenle", systemImage: "pencil")
+                }
+                .tint(AppColors.accentPrimary)
             }
         }
     }
 
     // MARK: - Service Section
     private var serviceSection: some View {
-        ForEach(allServiceRecords.filter { isWithinDateRange($0.date) }) { record in
+        let filtered = allServiceRecords.filter { isWithinDateRange($0.date) }
+        return timeGroupedSection(items: filtered, dateKey: \.date) { record in
             Button {
                 editingService = record
             } label: {
                 HStack(spacing: AppSpacing.sm) {
                     Image(systemName: "wrench.and.screwdriver")
-                        .foregroundColor(AppColors.warning).frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
+                        .foregroundColor(AppColors.warning)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(record.serviceType.displayName)
-                            .font(AppTypography.secondary).foregroundColor(AppColors.textPrimary)
-                        if let vendor = record.vendorName, !vendor.isEmpty {
-                            Text(vendor).font(AppTypography.caption).foregroundColor(AppColors.textTertiary)
+                            .font(AppTypography.secondary)
+                            .foregroundColor(AppColors.textPrimary)
+                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            if let vehicle = vehicleFor(id: record.vehicleId) {
+                                Text(vehicle.plate.isEmpty ? vehicle.fullName : vehicle.plate)
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textTertiary)
+                                    .lineLimit(1)
+                            }
+                            if let vendor = record.vendorName, !vendor.isEmpty {
+                                if vehicleFor(id: record.vehicleId) != nil {
+                                    Text("·")
+                                        .font(.caption)
+                                        .foregroundColor(AppColors.textTertiary.opacity(0.4))
+                                }
+                                Text(vendor)
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textTertiary)
+                                    .lineLimit(1)
+                            }
                         }
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
                         if let totalDisplay = record.totalCostDisplay {
-                            Text(totalDisplay).font(AppTypography.bodyMedium).foregroundColor(AppColors.textPrimary)
+                            Text(totalDisplay)
+                                .font(AppTypography.bodyMedium)
+                                .foregroundColor(AppColors.textPrimary)
+                                .monospacedDigit()
                         }
                         Text(record.date.formatted(date: .numeric, time: .omitted))
-                            .font(AppTypography.caption).foregroundColor(AppColors.textTertiary)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textTertiary)
                     }
                 }
             }
@@ -351,27 +509,52 @@ struct HistoryView: View {
             .padding(.vertical, AppSpacing.xxs)
             .swipeActions(edge: .trailing) { swipeDeleteButton(record) }
             .swipeActions(edge: .leading) {
-                Button { editingService = record } label: { Label("Düzenle", systemImage: "pencil") }.tint(AppColors.accentPrimary)
+                Button { editingService = record } label: {
+                    Label("Düzenle", systemImage: "pencil")
+                }
+                .tint(AppColors.accentPrimary)
             }
         }
     }
 
     // MARK: - Document Section
     private var documentSection: some View {
-        ForEach(allDocuments.filter { isWithinDateRange($0.createdAt) }) { doc in
+        let filtered = allDocuments.filter { isWithinDateRange($0.createdAt) }
+        return timeGroupedSection(items: filtered, dateKey: \.createdAt) { doc in
             Button {
-                if let url = DocumentStorageService.shared.materializeFileIfNeeded(localFileName: doc.localFileName, data: doc.fileData) {
+                if let url = DocumentStorageService.shared.materializeFileIfNeeded(
+                    localFileName: doc.localFileName, data: doc.fileData
+                ) {
                     previewURL = url
                 }
             } label: {
                 HStack(spacing: AppSpacing.sm) {
                     Image(systemName: doc.type.defaultIcon)
-                        .foregroundColor(AppColors.document).frame(width: 24)
-                    VStack(alignment: .leading, spacing: 2) {
+                        .foregroundColor(AppColors.document)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(doc.title.isEmpty ? doc.type.displayName : doc.title)
-                            .font(AppTypography.secondary).foregroundColor(AppColors.textPrimary)
-                        if let size = doc.fileSizeDisplay {
-                            Text(size).font(AppTypography.caption).foregroundColor(AppColors.textTertiary)
+                            .font(AppTypography.secondary)
+                            .foregroundColor(AppColors.textPrimary)
+                            .lineLimit(1)
+                        HStack(spacing: 4) {
+                            if let vehicle = vehicleFor(id: doc.vehicleId) {
+                                Text(vehicle.plate.isEmpty ? vehicle.fullName : vehicle.plate)
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textTertiary)
+                                    .lineLimit(1)
+                            }
+                            if let size = doc.fileSizeDisplay {
+                                if vehicleFor(id: doc.vehicleId) != nil {
+                                    Text("·")
+                                        .font(.caption)
+                                        .foregroundColor(AppColors.textTertiary.opacity(0.4))
+                                }
+                                Text(size)
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textTertiary)
+                                    .lineLimit(1)
+                            }
                         }
                     }
                     Spacer()
@@ -390,7 +573,8 @@ struct HistoryView: View {
                 Text("Süresi Geçti")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(AppColors.critical)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
                     .background(Capsule().fill(AppColors.critical.opacity(0.12)))
             )
         } else if doc.isExpiringSoon {
@@ -398,7 +582,8 @@ struct HistoryView: View {
                 Text("\(doc.daysUntilExpiry ?? 0) gün")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(AppColors.warning)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
                     .background(Capsule().fill(AppColors.warning.opacity(0.12)))
             )
         }
@@ -407,19 +592,41 @@ struct HistoryView: View {
 
     // MARK: - Inspection Section
     private var inspectionSection: some View {
-        ForEach(allInspections.filter { isWithinDateRange($0.reportDate) }) { report in
+        let filtered = allInspections.filter { isWithinDateRange($0.reportDate) }
+        return timeGroupedSection(items: filtered, dateKey: \.reportDate) { report in
             HStack(spacing: AppSpacing.sm) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundColor(AppColors.accentPrimary).frame(width: 24)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(report.providerName).font(AppTypography.secondary).foregroundColor(AppColors.textPrimary)
-                    if let branch = report.branchName, !branch.isEmpty {
-                        Text(branch).font(AppTypography.caption).foregroundColor(AppColors.textTertiary)
+                    .foregroundColor(AppColors.accentPrimary)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(report.providerName)
+                        .font(AppTypography.secondary)
+                        .foregroundColor(AppColors.textPrimary)
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        if let vehicle = vehicleFor(id: report.vehicleId) {
+                            Text(vehicle.plate.isEmpty ? vehicle.fullName : vehicle.plate)
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textTertiary)
+                                .lineLimit(1)
+                        }
+                        if let branch = report.branchName, !branch.isEmpty {
+                            if vehicleFor(id: report.vehicleId) != nil {
+                                Text("·")
+                                    .font(.caption)
+                                    .foregroundColor(AppColors.textTertiary.opacity(0.4))
+                            }
+                            Text(branch)
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textTertiary)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 Spacer()
                 Text(report.dateDisplay)
-                    .font(AppTypography.caption).foregroundColor(AppColors.textTertiary)
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textTertiary)
             }
             .padding(.vertical, AppSpacing.xxs)
             .swipeActions(edge: .trailing) { swipeDeleteButton(report) }
@@ -432,6 +639,7 @@ struct HistoryView: View {
         let icon: String
         let title: String
         let subtitle: String
+        let plateText: String
         let date: Date
         let dateDisplay: String
         let color: Color
@@ -440,16 +648,52 @@ struct HistoryView: View {
     private func buildTimeline() -> [HistoryTimelineItem] {
         var items: [HistoryTimelineItem] = []
         for e in allExpenses where isWithinDateRange(e.date) {
-            items.append(HistoryTimelineItem(icon: e.category.defaultIcon, title: e.category.displayName, subtitle: e.vendorName ?? "", date: e.date, dateDisplay: e.dateDisplay, color: AppColors.accentPrimary))
+            let plate = vehicleFor(id: e.vehicleId).map { $0.plate.isEmpty ? $0.fullName : $0.plate } ?? ""
+            items.append(HistoryTimelineItem(
+                icon: e.category.defaultIcon,
+                title: e.category.displayName,
+                subtitle: e.vendorName ?? "",
+                plateText: plate,
+                date: e.date,
+                dateDisplay: e.dateDisplay,
+                color: AppColors.accentPrimary
+            ))
         }
         for s in allServiceRecords where isWithinDateRange(s.date) {
-            items.append(HistoryTimelineItem(icon: "wrench.and.screwdriver", title: s.serviceType.displayName, subtitle: s.vendorName ?? "", date: s.date, dateDisplay: s.date.formatted(date: .numeric, time: .omitted), color: AppColors.warning))
+            let plate = vehicleFor(id: s.vehicleId).map { $0.plate.isEmpty ? $0.fullName : $0.plate } ?? ""
+            items.append(HistoryTimelineItem(
+                icon: "wrench.and.screwdriver",
+                title: s.serviceType.displayName,
+                subtitle: s.vendorName ?? "",
+                plateText: plate,
+                date: s.date,
+                dateDisplay: s.date.formatted(date: .numeric, time: .omitted),
+                color: AppColors.warning
+            ))
         }
         for d in allDocuments where isWithinDateRange(d.createdAt) {
-            items.append(HistoryTimelineItem(icon: d.type.defaultIcon, title: d.title.isEmpty ? d.type.displayName : d.title, subtitle: d.fileSizeDisplay ?? "", date: d.createdAt, dateDisplay: d.createdAt.formatted(date: .numeric, time: .omitted), color: AppColors.document))
+            let plate = vehicleFor(id: d.vehicleId).map { $0.plate.isEmpty ? $0.fullName : $0.plate } ?? ""
+            items.append(HistoryTimelineItem(
+                icon: d.type.defaultIcon,
+                title: d.title.isEmpty ? d.type.displayName : d.title,
+                subtitle: d.fileSizeDisplay ?? "",
+                plateText: plate,
+                date: d.createdAt,
+                dateDisplay: d.createdAt.formatted(date: .numeric, time: .omitted),
+                color: AppColors.document
+            ))
         }
         for i in allInspections where isWithinDateRange(i.reportDate) {
-            items.append(HistoryTimelineItem(icon: "magnifyingglass", title: i.providerName, subtitle: i.branchName ?? "", date: i.reportDate, dateDisplay: i.dateDisplay, color: AppColors.accentPrimary))
+            let plate = vehicleFor(id: i.vehicleId).map { $0.plate.isEmpty ? $0.fullName : $0.plate } ?? ""
+            items.append(HistoryTimelineItem(
+                icon: "magnifyingglass",
+                title: i.providerName,
+                subtitle: i.branchName ?? "",
+                plateText: plate,
+                date: i.reportDate,
+                dateDisplay: i.dateDisplay,
+                color: AppColors.accentPrimary
+            ))
         }
         for r in completedReminders where isWithinDateRange(r.addedToHistoryAt ?? .distantPast) {
             let vehicle = vehicles.first { $0.id == r.vehicleId }
@@ -458,7 +702,8 @@ struct HistoryView: View {
             items.append(HistoryTimelineItem(
                 icon: "checkmark.circle",
                 title: r.title,
-                subtitle: vehicleText.isEmpty ? "Yapılacak tamamlandı" : "\(vehicleText) · Yapılacak tamamlandı",
+                subtitle: "Yapılacak tamamlandı",
+                plateText: vehicleText,
                 date: historyDate,
                 dateDisplay: historyDate.formatted(date: .numeric, time: .omitted),
                 color: AppColors.success
@@ -505,7 +750,9 @@ struct HistoryView: View {
 
     // MARK: - Row helper
     private func swipeDeleteButton<T>(_ item: T) -> some View {
-        Button(role: .destructive) { confirmDelete(item) } label: { Label("Sil", systemImage: "trash") }
+        Button(role: .destructive) { confirmDelete(item) } label: {
+            Label("Sil", systemImage: "trash")
+        }
     }
 }
 

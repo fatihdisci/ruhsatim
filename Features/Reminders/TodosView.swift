@@ -13,22 +13,36 @@ struct TodosView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 notificationRouteBanner
-                ReminderListView()
-            }
-                .navigationTitle("Yapılacaklar")
-                .background(Color.appBackground)
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            showAddReminder = true
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.body)
-                                .foregroundColor(AppColors.accentPrimary)
-                        }
-                        .accessibilityLabel("Yapılacak Ekle")
-                    }
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    Text("Yapılacaklar")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(AppColors.textPrimary)
+                        .padding(.horizontal, AppSpacing.screenMarginH)
+
+                    Text("Geciken, bugün ve yaklaşan araç işlerini öncelik sırasıyla takip et.")
+                        .font(AppTypography.secondary)
+                        .foregroundColor(AppColors.textSecondary)
+                        .padding(.horizontal, AppSpacing.screenMarginH)
+                        .padding(.bottom, AppSpacing.xs)
                 }
+                .padding(.top, AppSpacing.md)
+
+                ReminderListView(showHeader: false)
+            }
+            .background(Color.appBackground)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showAddReminder = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.body.weight(.semibold))
+                            .foregroundColor(AppColors.accentPrimary)
+                    }
+                    .accessibilityLabel("Yapılacak Ekle")
+                }
+            }
+            .toolbarBackground(.hidden, for: .navigationBar)
                 .sheet(isPresented: $showAddReminder) {
                     ReminderFormView()
                 }
