@@ -340,7 +340,6 @@ struct GarageView: View {
                     .minimumScaleFactor(0.76)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .shadow(color: .black.opacity(0.5), radius: 8, x: 0, y: 2)
             .padding(.horizontal, AppSpacing.lg)
             .padding(.bottom, AppSpacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -352,18 +351,7 @@ struct GarageView: View {
         let score = computeFileScore(for: vehicle)
 
         return VStack(alignment: .leading, spacing: AppSpacing.md) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: AppSpacing.sm) {
-                    heroIdentityBlock(vehicle: vehicle)
-                    Spacer(minLength: AppSpacing.sm)
-                    statusPill(score: score)
-                }
-
-                VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                    heroIdentityBlock(vehicle: vehicle)
-                    statusPill(score: score)
-                }
-            }
+            heroIdentityBlock(vehicle: vehicle)
 
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: AppSpacing.xs) {
@@ -391,7 +379,7 @@ struct GarageView: View {
                 }
             }
 
-            fileCompletenessBar(score: score)
+            compactFileBadge(score: score)
 
             if let reminder = upcomingReminder(for: vehicle) {
                 heroReminderRow(reminder)
@@ -418,7 +406,7 @@ struct GarageView: View {
 
             if let year = vehicle.year {
                 VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    Text("\(year)")
+                    Text(String(year))
                         .font(AppTypography.captionMedium)
                         .foregroundColor(AppColors.textPrimary)
                     Text(vehicle.vehicleType.displayName)
@@ -429,61 +417,31 @@ struct GarageView: View {
         }
     }
 
-    private func fileCompletenessBar(score: Int) -> some View {
-        VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-            HStack {
-                Text("Dosya tamlığı")
-                    .font(AppTypography.caption)
-                    .foregroundColor(AppColors.textTertiary)
-                Spacer()
-                Text("%\(score)")
-                    .font(AppTypography.captionMedium)
-                    .foregroundColor(score >= 80 ? AppColors.success : AppColors.accentPrimary)
-            }
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(AppColors.border.opacity(0.45))
-                    Capsule()
-                        .fill(score >= 80 ? AppColors.success : AppColors.accentPrimary)
-                        .frame(width: proxy.size.width * CGFloat(score) / 100)
-                }
-            }
-            .frame(height: 5)
-        }
-    }
-
     private func heroReminderRow(_ reminder: Reminder) -> some View {
-        HStack(spacing: AppSpacing.xs) {
+        HStack(spacing: AppSpacing.sm) {
             Image(systemName: reminder.isOverdue ? "exclamationmark.triangle.fill" : "bell.badge")
                 .font(.caption)
                 .foregroundColor(reminder.isOverdue ? AppColors.critical : AppColors.warning)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(reminder.isOverdue ? "Öncelik istiyor" : "Sıradaki önemli iş")
-                    .font(AppTypography.caption)
-                    .foregroundColor(AppColors.textTertiary)
-                Text(reminder.title.isEmpty ? reminder.type.displayName : reminder.title)
-                    .font(AppTypography.captionMedium)
-                    .foregroundColor(AppColors.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-            }
+            Text(reminder.isOverdue ? "Öncelik istiyor" : "Sıradaki önemli iş")
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textTertiary)
+                .lineLimit(1)
+            Text(reminder.title.isEmpty ? reminder.type.displayName : reminder.title)
+                .font(AppTypography.captionMedium)
+                .foregroundColor(AppColors.textPrimary)
+                .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .padding(AppSpacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: AppRadius.medium, style: .continuous)
-                .fill((reminder.isOverdue ? AppColors.critical : AppColors.warning).opacity(0.075))
-        )
+        .padding(.vertical, AppSpacing.xs)
     }
 
-    private func statusPill(score: Int) -> some View {
-        Label("%\(score)", systemImage: score >= 80 ? "checkmark.seal.fill" : "doc.text.magnifyingglass")
+    private func compactFileBadge(score: Int) -> some View {
+        Label("Dosya %\(score)", systemImage: "doc.text.magnifyingglass")
             .font(AppTypography.captionMedium)
             .foregroundColor(score >= 80 ? AppColors.success : AppColors.accentPrimary)
-            .padding(.horizontal, AppSpacing.xs)
-            .padding(.vertical, 7)
+            .monospacedDigit()
+            .padding(.horizontal, AppSpacing.sm)
+            .padding(.vertical, 6)
             .background(
                 Capsule()
                     .fill((score >= 80 ? AppColors.success : AppColors.accentPrimary).opacity(0.085))
