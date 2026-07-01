@@ -30,32 +30,25 @@ struct OwnershipInsightCard: View {
                 Spacer()
             }
 
-            // Value — scaled to fit
+            // Value
             Text(value)
-                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(AppColors.textPrimary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.55)
+                .minimumScaleFactor(0.65)
                 .monospacedDigit()
-
-            Spacer(minLength: 0)
 
             // Subtitle
             if let subtitle {
                 Text(subtitle)
-                    .font(.system(size: 10))
+                    .font(AppTypography.caption)
                     .foregroundColor(AppColors.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-            } else {
-                // Placeholder to keep height consistent
-                Text(" ")
-                    .font(.system(size: 10))
             }
         }
         .padding(AppSpacing.sm)
-        .frame(maxWidth: .infinity, minHeight: 110)
-        .frame(height: 110)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: AppRadius.card)
                 .fill(Color.appSurface)
@@ -105,24 +98,22 @@ struct PremiumMetricHero: View {
 
             // Insight line
             if let insightLine {
-                HStack(spacing: AppSpacing.xxs) {
-                    Image(systemName: "sparkles")
-                        .font(.caption2)
-                        .foregroundColor(AppColors.warning)
-                    Text(insightLine)
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                .padding(.top, AppSpacing.xxs)
+                Text(insightLine)
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .padding(.top, AppSpacing.xxs)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, AppSpacing.xl)
+        .padding(.vertical, AppSpacing.lg)
         .padding(.horizontal, AppSpacing.md)
         .background(
-            RoundedRectangle(cornerRadius: AppRadius.heroCard)
+            RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous)
                 .fill(Color.appSurface)
-                .elevatedShadow()
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous)
+                .stroke(AppColors.border.opacity(0.45), lineWidth: 0.5)
         )
         .padding(.horizontal, AppSpacing.screenMarginH)
         .opacity(appeared ? 1 : 0)

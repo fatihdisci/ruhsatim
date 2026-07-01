@@ -3,9 +3,8 @@ import SwiftData
 import Charts
 
 // MARK: - Reports View
-// Araç masraf raporları: sahiplik içgörüsü formatında sunulur.
-// PremiumMetricHero ana görsel çapa, OwnershipInsightCard'lar destekleyici.
-// Tasarım kuralı: Sakin, okunaklı, anlatısal (narrative).
+// Araç masraf raporları: sahiplik maliyeti özeti.
+// Sakin, okunaklı, güvenilir — araç sahiplik dashboard'u.
 
 struct ReportsView: View {
     @Query(sort: \Expense.date, order: .reverse) private var allExpenses: [Expense]
@@ -16,6 +15,7 @@ struct ReportsView: View {
     @State private var showSaleFile = false
     @State private var saleFileVehicle: Vehicle?
     @State private var showVehiclePicker = false
+    @State private var showAddExpense = false
 
     private let currentYear = Calendar.current.component(.year, from: Date())
 
@@ -71,7 +71,7 @@ struct ReportsView: View {
 
     // MARK: - Computed Insights
     private var currentMonthIndex: Int {
-        Calendar.current.component(.month, from: Date()) - 1 // 0-based
+        Calendar.current.component(.month, from: Date()) - 1
     }
 
     private var currentMonthTotal: Double {
@@ -115,16 +115,17 @@ struct ReportsView: View {
                 if allExpenses.isEmpty {
                     EmptyStateView(
                         icon: "chart.bar.fill",
-                        title: "İlk masraf kaydını ekle",
-                        description: "Masraf ve bakım kayıtları ekledikçe yıllık toplam, kategori dağılımı ve km başı maliyet burada görünür.",
-                        actionTitle: nil, action: nil
+                        title: "Henüz rapor oluşmadı",
+                        description: "Masraf ve bakım kayıtları ekledikçe aracının maliyet özeti burada oluşur.",
+                        actionTitle: "Masraf Ekle",
+                        action: { showAddExpense = true }
                     )
                 } else {
                     reportContent
                 }
             }
             .navigationTitle("Raporlar")
-            .background(Color.appBackground)
+            .sheet(isPresented: $showAddExpense) { ExpenseFormView() }
             .sheet(item: $saleFileVehicle) { vehicle in
                 SaleFileView(vehicle: vehicle)
             }
@@ -143,17 +144,23 @@ struct ReportsView: View {
     private var reportContent: some View {
         ScrollView {
             VStack(spacing: AppSpacing.lg) {
+                // Supporting copy
+                Text("Aracının yıllık masrafını, kategori dağılımını ve maliyet ritmini gör.")
+                    .font(AppTypography.secondary)
+                    .foregroundColor(AppColors.textSecondary)
+                    .padding(.horizontal, AppSpacing.screenMarginH)
+
                 filters
 
-                // Hero metric — anlatısal
+                // Hero metric
                 PremiumMetricHero(
-                    label: selectedYear == currentYear ? "Bu yıl aracın sana" : "\(String(selectedYear)) yılında aracın sana",
+                    label: selectedYear == currentYear ? "Bu yılki toplam masraf" : "\(String(selectedYear)) yılı toplam masraf",
                     value: currencyFormat(yearlyTotal),
                     vehicleName: selectedVehicle.map { $0.plate.isEmpty ? $0.fullName : "\($0.plate) · \($0.fullName)" },
                     insightLine: yearTrendLabel
                 )
 
-                // Ownership insight cards — MVP'de tek araç için ücretsiz
+                // Insight cards
                 insightCardsGrid
                 monthlyChart
                 categorySection
@@ -166,31 +173,78 @@ struct ReportsView: View {
             }
             .padding(.vertical, AppSpacing.md)
         }
-        .background(Color.appBackground)
+        .background(Color.appBackground.ignoresSafeArea())
     }
 
     // MARK: - Filters
+    private var selectedVehicleLabel: String {
+        if let v = selectedVehicle {
+            return v.plate.isEmpty ? v.fullName : v.plate
+        }
+        return "Tüm Araçlar"
+    }
+
     private var filters: some View {
-        HStack(spacing: AppSpacing.md) {
+        HStack(spacing: AppSpacing.xs) {
             if vehicles.count > 1 {
-                Picker("Araç", selection: $selectedVehicleId) {
-                    Text("Tüm Araçlar").tag(nil as UUID?)
-                    ForEach(vehicles) { v in
-                        Text(v.plate.isEmpty ? v.fullName : v.plate)
-                            .tag(v.id as UUID?)
+                Menu {
+                    Button { selectedVehicleId = nil } label: {
+                        HStack {
+                            Text("Tüm Araçlar")
+                            if selectedVehicleId == nil { Image(systemName: "checkmark") }
+                        }
                     }
+                    ForEach(vehicles) { v in
+                        Button { selectedVehicleId = v.id } label: {
+                            HStack {
+                                Text(v.plate.isEmpty ? v.fullName : v.plate)
+                                if selectedVehicleId == v.id { Image(systemName: "checkmark") }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "car.fill")
+                            .font(.caption2)
+                        Text(selectedVehicleLabel)
+                            .font(AppTypography.captionMedium)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(selectedVehicleId == nil ? AppColors.textSecondary : AppColors.accentPrimary)
+                    .padding(.horizontal, AppSpacing.sm)
+                    .padding(.vertical, AppSpacing.xs)
+                    .background(
+                        Capsule()
+                            .fill(selectedVehicleId == nil ? AppColors.backgroundSecondary : AppColors.accentPrimary.opacity(0.1))
+                    )
                 }
-                .pickerStyle(.menu)
-                .tint(AppColors.accentPrimary)
             }
 
-            Picker("Yıl", selection: $selectedYear) {
+            Menu {
                 ForEach(availableYears(), id: \.self) { year in
-                    Text(String(year)).tag(year)
+                    Button { selectedYear = year } label: {
+                        HStack {
+                            Text(String(year))
+                            if selectedYear == year { Image(systemName: "checkmark") }
+                        }
+                    }
                 }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(String(selectedYear))
+                        .font(AppTypography.captionMedium)
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                }
+                .foregroundColor(AppColors.accentPrimary)
+                .padding(.horizontal, AppSpacing.sm)
+                .padding(.vertical, AppSpacing.xs)
+                .background(
+                    Capsule()
+                        .fill(AppColors.accentPrimary.opacity(0.1))
+                )
             }
-            .pickerStyle(.menu)
-            .tint(AppColors.accentPrimary)
         }
         .padding(.horizontal, AppSpacing.screenMarginH)
     }
@@ -248,7 +302,15 @@ struct ReportsView: View {
     // MARK: - Monthly Chart
     private var monthlyChart: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            SectionHeader(title: "Aylık Dağılım")
+            HStack(alignment: .firstTextBaseline) {
+                Text("Aylık Dağılım")
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(AppColors.textPrimary)
+                Spacer()
+                Text("Aylara göre harcama akışı")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textTertiary)
+            }
 
             Chart {
                 ForEach(monthlyData, id: \.month) { item in
@@ -258,7 +320,7 @@ struct ReportsView: View {
                     )
                     .foregroundStyle(
                         item.total > 0
-                            ? AppColors.accentPrimary.opacity(0.8)
+                            ? AppColors.accentPrimary.opacity(0.72)
                             : AppColors.border
                     )
                     .cornerRadius(4)
@@ -283,51 +345,72 @@ struct ReportsView: View {
         }
         .padding(AppSpacing.md)
         .background(
-            RoundedRectangle(cornerRadius: AppRadius.card)
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .fill(Color.appSurface)
         )
-        .subtleShadow()
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                .stroke(AppColors.border.opacity(0.45), lineWidth: 0.5)
+        )
         .padding(.horizontal, AppSpacing.screenMarginH)
     }
 
     // MARK: - Category Breakdown
     private var categorySection: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            SectionHeader(title: "Kategori Dağılımı")
+            HStack(alignment: .firstTextBaseline) {
+                Text("Kategori Dağılımı")
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(AppColors.textPrimary)
+                Spacer()
+                Text("Kategori bazında dağılım")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textTertiary)
+            }
 
-            VStack(spacing: AppSpacing.xs) {
+            VStack(spacing: AppSpacing.sm) {
                 ForEach(categoryData.prefix(8), id: \.category) { item in
                     categoryRow(item)
                 }
 
                 if categoryData.isEmpty {
-                    Text("Bu yıl için veri yok.")
-                        .font(AppTypography.secondary)
-                        .foregroundColor(AppColors.textSecondary)
-                        .padding(.vertical, AppSpacing.md)
+                    HStack(spacing: AppSpacing.sm) {
+                        Image(systemName: "chart.pie")
+                            .font(.body)
+                            .foregroundColor(AppColors.textTertiary)
+                        Text("Bu yıl için kategori verisi yok.")
+                            .font(AppTypography.secondary)
+                            .foregroundColor(AppColors.textSecondary)
+                        Spacer()
+                    }
+                    .padding(.vertical, AppSpacing.md)
                 }
             }
         }
         .padding(AppSpacing.md)
         .background(
-            RoundedRectangle(cornerRadius: AppRadius.card)
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .fill(Color.appSurface)
         )
-        .subtleShadow()
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                .stroke(AppColors.border.opacity(0.45), lineWidth: 0.5)
+        )
         .padding(.horizontal, AppSpacing.screenMarginH)
     }
 
     private func categoryRow(_ item: (category: ExpenseCategory, total: Double, percentage: Double)) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             HStack(spacing: AppSpacing.sm) {
                 Image(systemName: item.category.defaultIcon)
                     .font(.caption)
                     .foregroundColor(AppColors.accentPrimary)
-                    .frame(width: 20)
+                    .frame(width: 22)
 
                 Text(item.category.displayName)
                     .font(AppTypography.secondary)
                     .foregroundColor(AppColors.textPrimary)
+                    .lineLimit(1)
 
                 Spacer()
 
@@ -341,27 +424,41 @@ struct ReportsView: View {
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(AppColors.backgroundSecondary)
-                        .frame(height: 4)
+                        .frame(height: 5)
 
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(AppColors.accentPrimary.opacity(0.6))
-                        .frame(width: max(geo.size.width * CGFloat(item.percentage / 100.0), 4), height: 4)
+                        .fill(AppColors.accentPrimary.opacity(0.55))
+                        .frame(width: max(geo.size.width * CGFloat(item.percentage / 100.0), 4), height: 5)
                 }
             }
-            .frame(height: 4)
+            .frame(height: 5)
         }
     }
 
     // MARK: - Top Expenses
     private var topExpensesSection: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            SectionHeader(title: "En Yüksek Masraflar")
+            HStack(alignment: .firstTextBaseline) {
+                Text("En Yüksek Masraflar")
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(AppColors.textPrimary)
+                Spacer()
+                Text("Bu yılın en büyük 5 gideri")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textTertiary)
+            }
 
             if topExpenses.isEmpty {
-                Text("Bu yıl için veri yok.")
-                    .font(AppTypography.secondary)
-                    .foregroundColor(AppColors.textSecondary)
-                    .padding(.vertical, AppSpacing.md)
+                HStack(spacing: AppSpacing.sm) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.body)
+                        .foregroundColor(AppColors.textTertiary)
+                    Text("Bu yıl için veri yok.")
+                        .font(AppTypography.secondary)
+                        .foregroundColor(AppColors.textSecondary)
+                    Spacer()
+                }
+                .padding(.vertical, AppSpacing.md)
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(topExpenses.enumerated()), id: \.element.id) { index, expense in
@@ -375,10 +472,13 @@ struct ReportsView: View {
         }
         .padding(AppSpacing.md)
         .background(
-            RoundedRectangle(cornerRadius: AppRadius.card)
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .fill(Color.appSurface)
         )
-        .subtleShadow()
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                .stroke(AppColors.border.opacity(0.45), lineWidth: 0.5)
+        )
         .padding(.horizontal, AppSpacing.screenMarginH)
     }
 
@@ -402,6 +502,7 @@ struct ReportsView: View {
                     Text(vendor)
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textTertiary)
+                        .lineLimit(1)
                 }
             }
 
@@ -419,7 +520,7 @@ struct ReportsView: View {
                     .foregroundColor(AppColors.textTertiary)
             }
         }
-        .padding(.vertical, AppSpacing.xs)
+        .padding(.vertical, AppSpacing.sm)
     }
 
     // MARK: - Sale File CTA
@@ -458,10 +559,13 @@ struct ReportsView: View {
             }
             .padding(AppSpacing.md)
             .background(
-                RoundedRectangle(cornerRadius: AppRadius.card)
+                RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                     .fill(Color.appSurface)
             )
-            .subtleShadow()
+            .overlay(
+                RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                    .stroke(AppColors.border.opacity(0.45), lineWidth: 0.5)
+            )
             .padding(.horizontal, AppSpacing.screenMarginH)
         }
         .buttonStyle(.plain)
