@@ -13,23 +13,19 @@ struct TodosView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 notificationRouteBanner
-                VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                    Text("Yapılacaklar")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(AppColors.textPrimary)
-                        .padding(.horizontal, AppSpacing.screenMarginH)
 
-                    Text("Geciken, bugün ve yaklaşan araç işlerini öncelik sırasıyla takip et.")
-                        .font(AppTypography.secondary)
-                        .foregroundColor(AppColors.textSecondary)
-                        .padding(.horizontal, AppSpacing.screenMarginH)
-                        .padding(.bottom, AppSpacing.xs)
-                }
-                .padding(.top, AppSpacing.md)
+                // Compact supporting copy — intro row, not a fake header
+                Text("Geciken, bugün ve yaklaşan araç işlerini öncelik sırasıyla takip et.")
+                    .font(AppTypography.secondary)
+                    .foregroundColor(AppColors.textSecondary)
+                    .padding(.horizontal, AppSpacing.screenMarginH)
+                    .padding(.bottom, AppSpacing.sm)
 
                 ReminderListView(showHeader: false)
             }
-            .background(Color.appBackground)
+            .background(Color.appBackground.ignoresSafeArea())
+            .navigationTitle("Yapılacaklar")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -42,10 +38,9 @@ struct TodosView: View {
                     .accessibilityLabel("Yapılacak Ekle")
                 }
             }
-            .toolbarBackground(.hidden, for: .navigationBar)
-                .sheet(isPresented: $showAddReminder) {
-                    ReminderFormView()
-                }
+            .sheet(isPresented: $showAddReminder) {
+                ReminderFormView()
+            }
         }
         .onAppear {
             checkNotificationPermission()
