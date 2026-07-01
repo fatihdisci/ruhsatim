@@ -20,6 +20,11 @@ struct CommunityPost: Codable, Identifiable, Equatable {
     var saveCount: Int
     var deletedAt: Date?
     var deletedBy: UUID?
+    var pinnedAt: Date?
+    var pinnedBy: UUID?
+    var hiddenAt: Date?
+    var hiddenBy: UUID?
+    var moderationStatus: String?
     var createdAt: Date
     var updatedAt: Date
 
@@ -51,6 +56,10 @@ struct CommunityPost: Codable, Identifiable, Equatable {
     }
 
     var isDeleted: Bool { deletedAt != nil }
+
+    var isCurrentlyPinned: Bool { isPinned && pinnedAt != nil }
+
+    var isModerationHidden: Bool { isHidden && hiddenAt != nil }
 
     var vehicleLabel: String? {
         guard let brand = vehicleBrand, !brand.isEmpty else { return nil }
@@ -91,6 +100,11 @@ struct CommunityPost: Codable, Identifiable, Equatable {
         case saveCount = "save_count"
         case deletedAt = "deleted_at"
         case deletedBy = "deleted_by"
+        case pinnedAt = "pinned_at"
+        case pinnedBy = "pinned_by"
+        case hiddenAt = "hidden_at"
+        case hiddenBy = "hidden_by"
+        case moderationStatus = "moderation_status"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         // Joined fields

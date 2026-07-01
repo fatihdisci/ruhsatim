@@ -10,6 +10,18 @@ struct PostCard: View {
     var onReport: (() -> Void)?
     var onBlock: (() -> Void)?
     var onUnblock: (() -> Void)?
+    // Moderation callbacks
+    var onPin: (() -> Void)?
+    var onUnpin: (() -> Void)?
+    var onHide: (() -> Void)?
+    var onUnhide: (() -> Void)?
+    var onDelete: (() -> Void)?
+    var onEdit: (() -> Void)?
+    var onViewReports: (() -> Void)?
+    var onShare: (() -> Void)?
+    // Role context
+    var isCurrentUserModerator: Bool = false
+    var isCurrentUserPostOwner: Bool = false
 
     @State private var showContextMenu = false
 
@@ -67,17 +79,7 @@ struct PostCard: View {
         .cardShadow()
         .contentShape(Rectangle())
         .contextMenu {
-            Button {
-                onReport?()
-            } label: {
-                Label("Bildir", systemImage: "flag")
-            }
-
-            Button {
-                onBlock?()
-            } label: {
-                Label("Kullanıcıyı Engelle", systemImage: "nosign")
-            }
+            contextMenuContent
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
@@ -120,6 +122,18 @@ struct PostCard: View {
                                     .fill(AppColors.accentPrimary.opacity(0.12))
                             )
                     }
+                    // Moderator badge
+                    if post.authorRole == .moderator {
+                        Text("Mod")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(AppColors.warning)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(
+                                Capsule()
+                                    .fill(AppColors.warning.opacity(0.12))
+                            )
+                    }
                 }
 
                 HStack(spacing: 4) {
@@ -137,15 +151,22 @@ struct PostCard: View {
                         .foregroundColor(AppColors.textTertiary)
 
                     // Pinned badge
-                    if post.isPinned {
+                    if post.isCurrentlyPinned {
                         Text("·")
                             .foregroundColor(AppColors.textTertiary)
-                        Image(systemName: "pin.fill")
-                            .font(.system(size: 8))
-                            .foregroundColor(AppColors.accentPrimary)
-                        Text("Sabitlendi")
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.accentPrimary)
+                        HStack(spacing: 3) {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 8))
+                            Text("Sabitli")
+                                .font(AppTypography.caption)
+                        }
+                        .foregroundColor(AppColors.accentPrimary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(AppColors.accentPrimary.opacity(0.15))
+                        )
                     }
                 }
             }
@@ -246,6 +267,108 @@ struct PostCard: View {
             .accessibilityHint(post.isSavedByCurrentUser ? "Kaydı kaldırmak için iki kere dokun" : "Kaydetmek için iki kere dokun")
         }
         .padding(.top, AppSpacing.xxs)
+    }
+
+    // MARK: - Context Menu (role-based)
+
+    @ViewBuilder
+    private var contextMenuContent: some View {
+        let isMod = isCurrentUserModerator
+        let isOwner = isCurrentUserPostOwner
+
+        if isMod || isOwner {
+            // --- Moderation & Owner Section ---
+            if isOwner {
+                Button {
+                    onEdit?()
+                } label: {
+                    Label("Düzenle", systemImage: "pencil")
+                }
+            }
+
+            if isMod {
+                Divider()
+
+                if post.isCurrentlyPinned {
+                    Button {
+                        onUnpin?()
+                    } label: {
+                        Label("Sabitlemeyi Kaldır", systemImage: "pin.slash")
+                    }
+                } else {
+                    Button {
+                        onPin?()
+                    } label: {
+                        Label("Sabitle", systemImage: "pin")
+                    }
+                }
+
+                if post.isModerationHidden {
+                    Button {
+                        onUnhide?()
+                    } label: {
+                        Label("Yayına Al", systemImage: "eye")
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        onHide?()
+                    } label: {
+                        Label("Gizle", systemImage: "eye.slash")
+                    }
+                }
+
+                Button(role: .destructive) {
+                    onDelete?()
+                } label: {
+                    Label("Sil", systemImage: "trash")
+                }
+
+                Button {
+                    onViewReports?()
+                } label: {
+                    Label("Raporları Gör", systemImage: "flag")
+                }
+            }
+
+            if isOwner && !isMod {
+                Divider()
+                Button(role: .destructive) {
+                    onDelete?()
+                } label: {
+                    Label("Gönderiyi Sil", systemImage: "trash")
+                }
+            }
+        } else {
+            // --- Regular User Section ---
+            Button {
+                onSave?()
+            } label: {
+                Label(
+                    post.isSavedByCurrentUser ? "Kaydedildi" : "Kaydet",
+                    systemImage: post.isSavedByCurrentUser ? "bookmark.fill" : "bookmark"
+                )
+            }
+
+            Button {
+                onReport?()
+            } label: {
+                Label("Şikayet Et", systemImage: "flag")
+            }
+
+            Divider()
+
+            Button {
+                onBlock?()
+            } label: {
+                Label("Kullanıcıyı Engelle", systemImage: "nosign")
+            }
+
+            Button {
+                onShare?()
+            } label: {
+                Label("Paylaş", systemImage: "square.and.arrow.up")
+            }
+        }
     }
 
     // MARK: - Accessibility

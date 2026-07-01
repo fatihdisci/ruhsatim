@@ -419,3 +419,208 @@ final class CommunityModerationActionTests: XCTestCase {
         XCTAssertEqual(report.id, id)
     }
 }
+
+// MARK: - Moderation Action Model Tests
+
+final class CommunityModerationActionModelTests: XCTestCase {
+    private func makeAction(action: String) -> CommunityModerationAction {
+        CommunityModerationAction(
+            id: UUID(),
+            actorId: UUID(),
+            action: action,
+            targetType: "post",
+            targetId: UUID(),
+            postId: UUID(),
+            commentId: nil,
+            reason: nil,
+            createdAt: Date()
+        )
+    }
+
+    func testPostPinnedDisplayName() {
+        let action = makeAction(action: "post_pinned")
+        XCTAssertEqual(action.actionDisplayName, "Post Sabitlendi")
+        XCTAssertEqual(action.actionIcon, "pin.fill")
+    }
+
+    func testPostUnpinnedDisplayName() {
+        let action = makeAction(action: "post_unpinned")
+        XCTAssertEqual(action.actionDisplayName, "Post Sabiti Kaldırıldı")
+        XCTAssertEqual(action.actionIcon, "pin.slash.fill")
+    }
+
+    func testPostHiddenDisplayName() {
+        let action = makeAction(action: "post_hidden")
+        XCTAssertEqual(action.actionDisplayName, "Post Gizlendi")
+        XCTAssertEqual(action.actionIcon, "eye.slash")
+    }
+
+    func testPostUnhiddenDisplayName() {
+        let action = makeAction(action: "post_unhidden")
+        XCTAssertEqual(action.actionDisplayName, "Post Gizlemesi Kaldırıldı")
+        XCTAssertEqual(action.actionIcon, "eye")
+    }
+
+    func testPostDeletedDisplayName() {
+        let action = makeAction(action: "post_deleted")
+        XCTAssertEqual(action.actionDisplayName, "Post Silindi")
+        XCTAssertEqual(action.actionIcon, "trash")
+    }
+
+    func testPostRestoredDisplayName() {
+        let action = makeAction(action: "post_restored")
+        XCTAssertEqual(action.actionDisplayName, "Post Geri Getirildi")
+        XCTAssertEqual(action.actionIcon, "arrow.uturn.backward")
+    }
+
+    func testUserBannedDisplayName() {
+        let action = makeAction(action: "user_banned")
+        XCTAssertEqual(action.actionDisplayName, "Kullanıcı Yasaklandı")
+        XCTAssertEqual(action.actionIcon, "hand.raised")
+    }
+
+    func testUserUnbannedDisplayName() {
+        let action = makeAction(action: "user_unbanned")
+        XCTAssertEqual(action.actionDisplayName, "Kullanıcı Yasağı Kaldırıldı")
+        XCTAssertEqual(action.actionIcon, "hand.raised.slash")
+    }
+
+    func testReportReviewedDisplayName() {
+        let action = makeAction(action: "report_reviewed")
+        XCTAssertEqual(action.actionDisplayName, "Şikayet İncelendi")
+        XCTAssertEqual(action.actionIcon, "checkmark.shield")
+    }
+
+    func testReportDismissedDisplayName() {
+        let action = makeAction(action: "report_dismissed")
+        XCTAssertEqual(action.actionDisplayName, "Şikayet Reddedildi")
+        XCTAssertEqual(action.actionIcon, "xmark.shield")
+    }
+
+    func testUnknownActionFallsBackToRaw() {
+        let action = makeAction(action: "unknown_action_type")
+        XCTAssertEqual(action.actionDisplayName, "unknown_action_type")
+        XCTAssertEqual(action.actionIcon, "gearshape")
+    }
+
+    func testRelativeTimeIsNotEmpty() {
+        let action = makeAction(action: "post_pinned")
+        XCTAssertFalse(action.relativeTime.isEmpty)
+    }
+}
+
+// MARK: - Post Pinned/Hidden Computed Properties
+
+final class CommunityPostModerationFieldsTests: XCTestCase {
+    func testIsCurrentlyPinnedTrueOnlyWhenBothSet() {
+        var post = makeSamplePost(isPinned: true, pinnedAt: Date())
+        XCTAssertTrue(post.isCurrentlyPinned)
+
+        post = makeSamplePost(isPinned: true, pinnedAt: nil)
+        XCTAssertFalse(post.isCurrentlyPinned)
+
+        post = makeSamplePost(isPinned: false, pinnedAt: Date())
+        XCTAssertFalse(post.isCurrentlyPinned)
+    }
+
+    func testIsModerationHiddenTrueOnlyWhenBothSet() {
+        var post = makeSamplePost(isHidden: true, hiddenAt: Date())
+        XCTAssertTrue(post.isModerationHidden)
+
+        post = makeSamplePost(isHidden: true, hiddenAt: nil)
+        XCTAssertFalse(post.isModerationHidden)
+
+        post = makeSamplePost(isHidden: false, hiddenAt: Date())
+        XCTAssertFalse(post.isModerationHidden)
+    }
+
+    // MARK: - Helpers
+
+    private func makeSamplePost(
+        isPinned: Bool = false,
+        pinnedAt: Date? = nil,
+        isHidden: Bool = false,
+        hiddenAt: Date? = nil
+    ) -> CommunityPost {
+        CommunityPost(
+            id: UUID(),
+            authorId: UUID(),
+            title: "Test Post",
+            body: "Test body content for moderation fields test.",
+            postType: .experience,
+            tags: ["Test"],
+            vehicleBrand: nil,
+            vehicleModel: nil,
+            vehicleYear: nil,
+            isPinned: isPinned,
+            isHidden: isHidden,
+            likeCount: 0,
+            commentCount: 0,
+            saveCount: 0,
+            deletedAt: nil,
+            deletedBy: nil,
+            pinnedAt: pinnedAt,
+            pinnedBy: nil,
+            hiddenAt: hiddenAt,
+            hiddenBy: nil,
+            moderationStatus: isHidden ? "hidden" : "published",
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+    }
+}
+
+// MARK: - Moderation Confirm Action Tests
+
+final class ModerationConfirmActionTests: XCTestCase {
+    private func makeSamplePost() -> CommunityPost {
+        CommunityPost(
+            id: UUID(),
+            authorId: UUID(),
+            title: "Test Başlık",
+            body: "Test body content for confirm action tests.",
+            postType: .experience,
+            tags: ["Test"],
+            vehicleBrand: nil,
+            vehicleModel: nil,
+            vehicleYear: nil,
+            isPinned: false,
+            isHidden: false,
+            likeCount: 0,
+            commentCount: 0,
+            saveCount: 0,
+            deletedAt: nil,
+            deletedBy: nil,
+            pinnedAt: nil,
+            pinnedBy: nil,
+            hiddenAt: nil,
+            hiddenBy: nil,
+            moderationStatus: "published",
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+    }
+
+    func testHidePostConfirmTitle() {
+        let post = makeSamplePost()
+        let action = ModerationConfirmAction.hidePost(post)
+        XCTAssertEqual(action.title, "Post Gizlensin mi?")
+        XCTAssertTrue(action.message.contains(post.title))
+        XCTAssertEqual(action.buttonLabel, "Gizle")
+    }
+
+    func testDeletePostConfirmTitle() {
+        let post = makeSamplePost()
+        let action = ModerationConfirmAction.deletePost(post)
+        XCTAssertEqual(action.title, "Post Silinsin mi?")
+        XCTAssertTrue(action.message.contains(post.title))
+        XCTAssertEqual(action.buttonLabel, "Sil")
+    }
+
+    func testConfirmActionIdentifiable() {
+        let post = makeSamplePost()
+        let hideAction = ModerationConfirmAction.hidePost(post)
+        let deleteAction = ModerationConfirmAction.deletePost(post)
+        XCTAssertNotEqual(hideAction.id, deleteAction.id)
+    }
+}

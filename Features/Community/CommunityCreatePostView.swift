@@ -65,6 +65,8 @@ struct CommunityCreatePostView: View {
     @State private var validationErrors: [String] = []
     @State private var isSubmitting = false
     @State private var submitError: String?
+    @State private var pinOnCreate = false
+    @State private var makeAnnouncement = false
 
     private let allTags = CommunityTag.all
 
@@ -213,6 +215,25 @@ struct CommunityCreatePostView: View {
                         .foregroundColor(AppColors.textTertiary)
                 }
 
+                // Moderation options (admin/moderator only)
+                if communityAuth.profile?.isModerator == true && editingPost == nil {
+                    Section {
+                        Toggle("Sabit post olarak yayınla", isOn: $pinOnCreate)
+                        Toggle("Duyuru olarak yayınla", isOn: $makeAnnouncement)
+                            .onChange(of: makeAnnouncement) { _, newValue in
+                                if newValue {
+                                    postType = .announcement
+                                }
+                            }
+                    } header: {
+                        Text("Moderasyon Seçenekleri")
+                    } footer: {
+                        Text("Sabit postlar akışın en üstünde görünür. Duyurular otomatik olarak sabitlenmez — ayrıca aktif etmelisin.")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textTertiary)
+                    }
+                }
+
                 // Submit error
                 if let submitError = submitError {
                     Section {
@@ -300,15 +321,19 @@ struct CommunityCreatePostView: View {
                         vehicleYear: showVehicle ? (selectedVehicle?.year ?? existing.vehicleYear) : nil
                     )
                 } else {
-                    _ = try await CommunityService.shared.createPost(
+                    let createdPost = try await CommunityService.shared.createPost(
                         title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                         body: bodyText.trimmingCharacters(in: .whitespacesAndNewlines),
-                        postType: postType!,
+                        postType: makeAnnouncement ? .announcement : postType!,
                         tags: Array(selectedTags),
                         vehicleBrand: showVehicle ? selectedVehicle?.brand : nil,
                         vehicleModel: showVehicle ? selectedVehicle?.model : nil,
                         vehicleYear: showVehicle ? selectedVehicle?.year : nil
                     )
+                    // Pin on create if requested
+                    if pinOnCreate {
+                        try? await CommunityModerationService.shared.pinPost(createdPost.id)
+                    }
                 }
                 dismiss()
             } catch {

@@ -23,14 +23,25 @@ struct CommunityFeedView: View {
     @State private var showCreatePost = false
     @State private var selectedPostId: PostDetailTarget?
     @State private var showModeration = false
+    @State private var showModerationCenter = false
     @State private var showSignInPrompt = false
     @State private var reportTarget: ReportTarget?
+    @State private var editingPost: CommunityPost?
+    @State private var confirmAction: ModerationConfirmAction?
 
     // Profile creation (first-time)
     @State private var usernameInput = ""
     @State private var displayNameInput = ""
     @State private var profileValidationError: String?
     @State private var isCreatingProfile = false
+    @State private var usernameAvailability: UsernameAvailability = .unknown
+
+    enum UsernameAvailability: Equatable {
+        case unknown
+        case checking
+        case available
+        case taken
+    }
 
     init(previewPosts: [CommunityPost]? = nil) {
         self.previewPosts = previewPosts
@@ -59,12 +70,12 @@ struct CommunityFeedView: View {
                             // Moderation (admin/moderator only)
                             if communityAuth.profile?.isModerator == true {
                                 Button {
-                                    showModeration = true
+                                    showModerationCenter = true
                                 } label: {
                                     Image(systemName: "shield")
                                         .foregroundColor(AppColors.accentPrimary)
                                 }
-                                .accessibilityLabel("Moderasyon")
+                                .accessibilityLabel("Moderasyon Merkezi")
                             }
 
                             // Create post
@@ -107,15 +118,17 @@ struct CommunityFeedView: View {
                 CommunityProfileView()
             }
             .sheet(isPresented: $showCreatePost, onDismiss: {
+                editingPost = nil
                 Task { await refreshPosts() }
             }) {
-                CommunityCreatePostView()
+                CommunityCreatePostView(editingPost: editingPost)
             }
             .sheet(item: $selectedPostId) { target in
                 CommunityPostDetailView(postId: target.postId)
             }
-            .sheet(isPresented: $showModeration) {
-                CommunityModerationView()
+            .sheet(isPresented: $showModerationCenter) {
+                CommunityModerationCenterView()
+                    .environmentObject(communityAuth)
             }
             .sheet(isPresented: $showSignInPrompt) {
                 signInPromptSheet
@@ -126,6 +139,22 @@ struct CommunityFeedView: View {
                     targetId: target.targetId,
                     onDismiss: { reportTarget = nil }
                 )
+            }
+            .confirmationDialog(
+                confirmAction?.title ?? "",
+                isPresented: .constant(confirmAction != nil),
+                presenting: confirmAction
+            ) { action in
+                Button(role: .destructive) {
+                    Task { await executeConfirmAction(action) }
+                } label: {
+                    Text(action.buttonLabel)
+                }
+                Button("Vazgeç", role: .cancel) {
+                    confirmAction = nil
+                }
+            } message: { action in
+                Text(action.message)
             }
         }
         .environmentObject(communityAuth)
@@ -249,6 +278,25 @@ struct CommunityFeedView: View {
                                 .foregroundColor(AppColors.textPrimary)
                                 .autocapitalization(.none)
                                 .disableAutocorrection(true)
+                                .onChange(of: usernameInput) { _, newValue in
+                                    checkUsernameDebounced(newValue)
+                                }
+
+                            // Availability indicator
+                            if usernameAvailability == .checking {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                            } else if usernameAvailability == .available {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(AppColors.accentPrimary)
+                                    .font(.subheadline)
+                                    .accessibilityLabel("Kullanıcı adı müsait")
+                            } else if usernameAvailability == .taken {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(AppColors.critical)
+                                    .font(.subheadline)
+                                    .accessibilityLabel("Kullanıcı adı alınmış")
+                            }
                         }
                         .padding(AppSpacing.md)
                         .background(
@@ -287,6 +335,44 @@ struct CommunityFeedView: View {
                                 .stroke(AppColors.border, lineWidth: 1)
                         )
                     }
+
+                    // Tips
+                    VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                        Text("💡 İpuçları")
+                            .font(AppTypography.captionMedium)
+                            .foregroundColor(AppColors.textSecondary)
+
+                        HStack(spacing: AppSpacing.xs) {
+                            Image(systemName: "1.circle.fill")
+                                .font(.caption2)
+                                .foregroundColor(AppColors.accentPrimary)
+                            Text("Kullanıcı adın herkese açık görünür. Gerçek adın olmak zorunda değil.")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textTertiary)
+                        }
+                        HStack(spacing: AppSpacing.xs) {
+                            Image(systemName: "2.circle.fill")
+                                .font(.caption2)
+                                .foregroundColor(AppColors.accentPrimary)
+                            Text("3-20 karakter, sadece harf, rakam ve alt çizgi (_) kullanabilirsin.")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textTertiary)
+                        }
+                        HStack(spacing: AppSpacing.xs) {
+                            Image(systemName: "3.circle.fill")
+                                .font(.caption2)
+                                .foregroundColor(AppColors.accentPrimary)
+                            Text("Profilini oluşturmadan gönderi paylaşamaz, yorum yapamaz veya beğenemezsin.")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textTertiary)
+                        }
+                    }
+                    .padding(AppSpacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppRadius.medium)
+                            .fill(AppColors.accentPrimary.opacity(0.06))
+                    )
 
                     if let error = profileValidationError {
                         Label(error, systemImage: "exclamationmark.circle.fill")
@@ -360,12 +446,27 @@ struct CommunityFeedView: View {
             } else {
                 List {
                     ForEach(posts) { post in
+                        let isMod = communityAuth.profile?.isModerator ?? false
+                        let isOwner = communityAuth.profile?.id == post.authorId
+
                         PostCard(
                             post: post,
                             onLike: { Task { await handleLike(post) } },
                             onSave: { Task { await handleSave(post) } },
                             onReport: { handleReport(post) },
-                            onBlock: { Task { await handleBlock(post) } }
+                            onBlock: { Task { await handleBlock(post) } },
+                            onPin: { Task { await handlePin(post) } },
+                            onUnpin: { Task { await handleUnpin(post) } },
+                            onHide: { confirmAction = .hidePost(post) },
+                            onUnhide: { Task { await handleUnhide(post) } },
+                            onDelete: { confirmAction = .deletePost(post) },
+                            onEdit: { handleEdit(post) },
+                            onViewReports: {
+                                showModerationCenter = true
+                            },
+                            onShare: { handleShare(post) },
+                            isCurrentUserModerator: isMod,
+                            isCurrentUserPostOwner: isOwner
                         )
                         .listRowInsets(EdgeInsets(
                             top: AppSpacing.xs,
@@ -486,6 +587,113 @@ struct CommunityFeedView: View {
         }
     }
 
+    // MARK: - Moderation Handlers
+
+    private func handlePin(_ post: CommunityPost) async {
+        do {
+            try await CommunityModerationService.shared.pinPost(post.id)
+            await refreshPosts()
+        } catch {
+            // Silently fail
+        }
+    }
+
+    private func handleUnpin(_ post: CommunityPost) async {
+        do {
+            try await CommunityModerationService.shared.unpinPost(post.id)
+            await refreshPosts()
+        } catch {
+            // Silently fail
+        }
+    }
+
+    private func handleHide(_ post: CommunityPost) async {
+        do {
+            try await CommunityModerationService.shared.hidePostViaRPC(post.id)
+            await refreshPosts()
+        } catch {
+            // Silently fail
+        }
+    }
+
+    private func handleUnhide(_ post: CommunityPost) async {
+        do {
+            try await CommunityModerationService.shared.unhidePost(post.id)
+            await refreshPosts()
+        } catch {
+            // Silently fail
+        }
+    }
+
+    private func handleModDelete(_ post: CommunityPost) async {
+        do {
+            if communityAuth.profile?.isModerator == true {
+                try await CommunityModerationService.shared.deletePostViaRPC(post.id)
+            } else {
+                try await CommunityService.shared.deletePost(id: post.id)
+            }
+            await refreshPosts()
+        } catch {
+            // Silently fail
+        }
+    }
+
+    private func handleEdit(_ post: CommunityPost) {
+        editingPost = post
+        showCreatePost = true
+    }
+
+    private func handleShare(_ post: CommunityPost) {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let root = window.rootViewController else { return }
+
+        let text = "\(post.title) — Arvia Topluluk"
+        let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
+        root.present(av, animated: true)
+    }
+
+    private func executeConfirmAction(_ action: ModerationConfirmAction) async {
+        confirmAction = nil
+        switch action {
+        case .hidePost(let post):
+            await handleHide(post)
+        case .deletePost(let post):
+            await handleModDelete(post)
+        }
+    }
+
+    // MARK: - Username Availability
+
+    @State private var usernameCheckTask: Task<Void, Never>?
+
+    private func checkUsernameDebounced(_ username: String) {
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 3 else {
+            usernameAvailability = .unknown
+            return
+        }
+
+        usernameCheckTask?.cancel()
+
+        // Debounce: sadece 400ms sessizlikten sonra kontrol et
+        usernameCheckTask = Task {
+            usernameAvailability = .checking
+            try? await Task.sleep(nanoseconds: 400_000_000)
+
+            guard !Task.isCancelled else { return }
+
+            do {
+                let isAvailable = try await CommunityProfileService.shared.checkUsernameAvailability(trimmed)
+                guard !Task.isCancelled else { return }
+                usernameAvailability = isAvailable ? .available : .taken
+            } catch {
+                guard !Task.isCancelled else { return }
+                usernameAvailability = .unknown
+            }
+        }
+    }
+
     private func handleCreatePostTap() {
         if communityAuth.isAuthenticated {
             showCreatePost = true
@@ -520,6 +728,14 @@ struct CommunityFeedView: View {
                     return
                 }
 
+                // Check username availability before creating
+                let isAvailable = try await CommunityProfileService.shared.checkUsernameAvailability(trimmedUsername)
+                guard isAvailable else {
+                    profileValidationError = "Bu kullanıcı adı zaten alınmış. Lütfen başka bir tane dene."
+                    isCreatingProfile = false
+                    return
+                }
+
                 let userId = session.user.id
                 let displayName = displayNameInput.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -535,6 +751,43 @@ struct CommunityFeedView: View {
                 profileValidationError = "Profil oluşturulamadı: \(error.localizedDescription)"
                 isCreatingProfile = false
             }
+        }
+    }
+}
+
+// MARK: - Moderation Confirm Action
+
+enum ModerationConfirmAction: Identifiable {
+    case hidePost(CommunityPost)
+    case deletePost(CommunityPost)
+
+    var id: String {
+        switch self {
+        case .hidePost: return "hide"
+        case .deletePost: return "delete"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .hidePost: return "Post Gizlensin mi?"
+        case .deletePost: return "Post Silinsin mi?"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .hidePost(let post):
+            return "\"\(post.title)\" başlıklı post gizlenecek. Kullanıcılar artık göremez."
+        case .deletePost(let post):
+            return "\"\(post.title)\" başlıklı post silinecek. Bu işlem geri alınamaz."
+        }
+    }
+
+    var buttonLabel: String {
+        switch self {
+        case .hidePost: return "Gizle"
+        case .deletePost: return "Sil"
         }
     }
 }

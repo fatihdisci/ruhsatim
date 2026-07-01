@@ -156,7 +156,7 @@ final class CommunityService {
         vehicleBrand: String? = nil,
         vehicleModel: String? = nil,
         vehicleYear: Int? = nil
-    ) async throws {
+    ) async throws -> CommunityPost {
         guard let client = client else {
             throw CommunityServiceError.configMissing
         }
@@ -176,11 +176,20 @@ final class CommunityService {
             "vehicle_year": vehicleYear.map { AnyJSON.integer($0) } ?? AnyJSON.null,
         ]
 
-        // Insert only — don't decode response (joined kolonlar dönmediği için decode başarısız olmaz).
-        try await client
+        let posts: [CommunityPost] = try await client
             .from("community_posts")
             .insert(payload)
+            .select()
             .execute()
+            .value
+
+        guard let createdPost = posts.first else {
+            throw CommunityServiceError.serverError("Post oluşturulamadı.")
+        }
+
+        // Enrich with author profile
+        let enriched = await enrichPosts([createdPost])
+        return enriched.first ?? createdPost
     }
 
     func updatePost(

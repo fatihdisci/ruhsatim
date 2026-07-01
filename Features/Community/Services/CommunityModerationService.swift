@@ -251,6 +251,148 @@ final class CommunityModerationService {
         return profile?.effectiveDisplayName
     }
 
+    // MARK: - Pin/Unpin (RPC)
+
+    func pinPost(_ postId: UUID) async throws {
+        guard let client = client else {
+            throw CommunityServiceError.configMissing
+        }
+
+        try await client
+            .rpc("pin_community_post", params: ["post_id": AnyJSON.string(postId.uuidString)])
+            .execute()
+    }
+
+    func unpinPost(_ postId: UUID) async throws {
+        guard let client = client else {
+            throw CommunityServiceError.configMissing
+        }
+
+        try await client
+            .rpc("unpin_community_post", params: ["post_id": AnyJSON.string(postId.uuidString)])
+            .execute()
+    }
+
+    // MARK: - Hide/Unhide (RPC)
+
+    /// Hide a post via RPC (logs moderation action). Prefer this over the old direct-update method.
+    func hidePostViaRPC(_ postId: UUID, reason: String? = nil) async throws {
+        guard let client = client else {
+            throw CommunityServiceError.configMissing
+        }
+
+        var params: [String: AnyJSON] = ["post_id": AnyJSON.string(postId.uuidString)]
+        if let reason = reason {
+            params["reason"] = AnyJSON.string(reason)
+        }
+
+        try await client
+            .rpc("hide_community_post", params: params)
+            .execute()
+    }
+
+    func unhidePost(_ postId: UUID) async throws {
+        guard let client = client else {
+            throw CommunityServiceError.configMissing
+        }
+
+        try await client
+            .rpc("unhide_community_post", params: ["post_id": AnyJSON.string(postId.uuidString)])
+            .execute()
+    }
+
+    // MARK: - Admin Soft Delete (RPC)
+
+    /// Admin/moderator soft-delete via RPC (logs moderation action).
+    func deletePostViaRPC(_ postId: UUID, reason: String? = nil) async throws {
+        guard let client = client else {
+            throw CommunityServiceError.configMissing
+        }
+
+        var params: [String: AnyJSON] = ["post_id": AnyJSON.string(postId.uuidString)]
+        if let reason = reason {
+            params["reason"] = AnyJSON.string(reason)
+        }
+
+        try await client
+            .rpc("delete_community_post", params: params)
+            .execute()
+    }
+
+    // MARK: - Moderation Actions Log
+
+    func fetchModerationActions(limit: Int = 50, offset: Int = 0) async throws -> [CommunityModerationAction] {
+        guard let client = client else {
+            throw CommunityServiceError.configMissing
+        }
+
+        let actions: [CommunityModerationAction] = try await client
+            .rpc("fetch_moderation_actions", params: [
+                "limit_count": AnyJSON.integer(limit),
+                "offset_count": AnyJSON.integer(offset),
+            ])
+            .execute()
+            .value
+
+        // Enrich with actor profile info
+        return await enrichModerationActions(actions)
+    }
+
+    private func enrichModerationActions(_ actions: [CommunityModerationAction]) async -> [CommunityModerationAction] {
+        let actorIds = Array(Set(actions.map(\.actorId)))
+        guard !actorIds.isEmpty else { return actions }
+
+        let profileService = CommunityProfileService.shared
+        var profiles: [UUID: CommunityProfile] = [:]
+        for actorId in actorIds {
+            if let profile = try? await profileService.fetchProfile(userId: actorId) {
+                profiles[actorId] = profile
+            }
+        }
+
+        return actions.map { action in
+            var enriched = action
+            if let profile = profiles[action.actorId] {
+                enriched.actorUsername = profile.username
+                enriched.actorDisplayName = profile.displayName
+                enriched.actorAvatarURL = profile.avatarURL
+            }
+            return enriched
+        }
+    }
+
+    // MARK: - Pinned / Hidden Post Queries
+
+    func fetchPinnedPosts() async throws -> [CommunityPost] {
+        guard let client = client else {
+            throw CommunityServiceError.configMissing
+        }
+
+        return try await client
+            .from("community_posts")
+            .select("*")
+            .is("deleted_at", value: nil)
+            .eq("is_pinned", value: true)
+            .order("pinned_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    func fetchHiddenPosts() async throws -> [CommunityPost] {
+        guard let client = client else {
+            throw CommunityServiceError.configMissing
+        }
+
+        return try await client
+            .from("community_posts")
+            .select("*")
+            .is("deleted_at", value: nil)
+            .eq("is_hidden", value: true)
+            .order("hidden_at", ascending: false)
+            .execute()
+            .value
+    }
+
     // MARK: - User Management
 
     func banUser(_ userId: UUID) async throws {

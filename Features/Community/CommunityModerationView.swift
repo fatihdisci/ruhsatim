@@ -284,7 +284,7 @@ struct CommunityModerationView: View {
         do {
             switch report.targetType {
             case "post":
-                try await CommunityModerationService.shared.hidePost(report.targetId)
+                try await CommunityModerationService.shared.hidePostViaRPC(report.targetId, reason: report.reason.rawValue)
             case "comment":
                 try await CommunityModerationService.shared.hideComment(report.targetId)
             default:

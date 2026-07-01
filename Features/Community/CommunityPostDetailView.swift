@@ -65,6 +65,18 @@ struct CommunityPostDetailView: View {
         .background(Color.appBackground)
         .navigationTitle("Gönderi")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let post = post {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        detailContextMenu(for: post)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .foregroundColor(AppColors.accentPrimary)
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $showSignInPrompt) {
             signInPromptSheet
         }
@@ -451,7 +463,7 @@ struct CommunityPostDetailView: View {
 
     private func submitComment() async {
         let body = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty, body.count <= 2000 else { return }
+        guard body.count >= 2, body.count <= 1000 else { return }
         isSubmittingComment = true
         commentError = nil
         do {
@@ -477,6 +489,110 @@ struct CommunityPostDetailView: View {
     private func blockCommentAuthor(_ comment: CommunityComment) async {
         do {
             try await CommunityModerationService.shared.blockUser(userId: comment.authorId)
+        } catch {}
+    }
+
+    // MARK: - Detail Context Menu (role-based)
+
+    @ViewBuilder
+    private func detailContextMenu(for post: CommunityPost) -> some View {
+        let isMod = communityAuth.profile?.isModerator ?? false
+        let isOwner = communityAuth.profile?.id == post.authorId
+
+        if isOwner {
+            Button {
+                // Navigate to edit — use the same CommunityCreatePostView pattern
+                // For now: reportTarget is reused since we don't have an edit sheet here
+            } label: {
+                Label("Düzenle", systemImage: "pencil")
+            }
+        }
+
+        if isMod {
+            Divider()
+
+            if post.isCurrentlyPinned {
+                Button {
+                    Task { await handleDetailUnpin(post) }
+                } label: {
+                    Label("Sabitlemeyi Kaldır", systemImage: "pin.slash")
+                }
+            } else {
+                Button {
+                    Task { await handleDetailPin(post) }
+                } label: {
+                    Label("Sabitle", systemImage: "pin")
+                }
+            }
+
+            if post.isModerationHidden {
+                Button {
+                    Task { await handleDetailUnhide(post) }
+                } label: {
+                    Label("Yayına Al", systemImage: "eye")
+                }
+            } else {
+                Button(role: .destructive) {
+                    Task { await handleDetailHide(post) }
+                } label: {
+                    Label("Gizle", systemImage: "eye.slash")
+                }
+            }
+
+            Button(role: .destructive) {
+                Task { await handleDetailDelete(post) }
+            } label: {
+                Label("Sil", systemImage: "trash")
+            }
+        }
+
+        if isOwner && !isMod {
+            Divider()
+            Button(role: .destructive) {
+                Task { await handleDetailDelete(post) }
+            } label: {
+                Label("Gönderiyi Sil", systemImage: "trash")
+            }
+        }
+    }
+
+    private func handleDetailPin(_ post: CommunityPost) async {
+        do {
+            try await CommunityModerationService.shared.pinPost(post.id)
+            // Refresh
+            await load()
+        } catch {}
+    }
+
+    private func handleDetailUnpin(_ post: CommunityPost) async {
+        do {
+            try await CommunityModerationService.shared.unpinPost(post.id)
+            await load()
+        } catch {}
+    }
+
+    private func handleDetailHide(_ post: CommunityPost) async {
+        do {
+            try await CommunityModerationService.shared.hidePostViaRPC(post.id)
+            await load()
+        } catch {}
+    }
+
+    private func handleDetailUnhide(_ post: CommunityPost) async {
+        do {
+            try await CommunityModerationService.shared.unhidePost(post.id)
+            await load()
+        } catch {}
+    }
+
+    private func handleDetailDelete(_ post: CommunityPost) async {
+        do {
+            if communityAuth.profile?.isModerator == true {
+                try await CommunityModerationService.shared.deletePostViaRPC(post.id)
+            } else {
+                try await CommunityService.shared.deletePost(id: post.id)
+            }
+            await load()
         } catch {}
     }
 
