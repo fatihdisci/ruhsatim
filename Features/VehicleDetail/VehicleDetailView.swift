@@ -101,7 +101,7 @@ struct VehicleDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: AppSpacing.lg) {
+            VStack(spacing: 28) {
                 // MARK: Visual Anchor — Hero Header
                 vehicleDetailHero
 
@@ -251,8 +251,9 @@ struct VehicleDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: AppRadius.heroCard, style: .continuous)
-                .stroke(AppColors.border.opacity(0.55), lineWidth: 0.5)
+                .stroke(AppColors.border.opacity(0.50), lineWidth: 0.5)
         )
+        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
         .padding(.horizontal, AppSpacing.screenMarginH)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(vehicle.plate), \(vehicle.fullName), \(vehicle.odometerDisplay)")
@@ -268,43 +269,50 @@ struct VehicleDetailView: View {
                     .frame(height: 188)
                     .clipped()
             } else {
-                LinearGradient(
-                    colors: [
-                        AppColors.vehicle.opacity(0.98),
-                        AppColors.accentPrimary.opacity(0.68),
-                        AppColors.textPrimary.opacity(0.22)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                ZStack {
+                    LinearGradient(
+                        colors: [
+                            AppColors.vehicle.opacity(0.92),
+                            AppColors.vehicle.opacity(0.72),
+                            AppColors.accentPrimary.opacity(0.38)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
 
-                Image(systemName: vehicle.vehicleType.heroSymbol)
-                    .font(.system(size: 66, weight: .ultraLight))
-                    .foregroundColor(.white.opacity(0.34))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Image(systemName: vehicle.vehicleType.heroSymbol)
+                        .font(.system(size: 72, weight: .ultraLight))
+                        .foregroundColor(.white.opacity(0.28))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
+            // Bottom-to-top gradient overlay for text legibility — no shadow needed
             LinearGradient(
-                colors: [.black.opacity(0.04), .black.opacity(0.18), .black.opacity(0.72)],
+                colors: [
+                    .black.opacity(0.02),
+                    .black.opacity(0.14),
+                    .black.opacity(0.78)
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
 
-            VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                Text(vehicle.nickname.isEmpty ? "Araç dosyası" : vehicle.nickname)
-                    .font(AppTypography.captionMedium)
-                    .foregroundColor(.white.opacity(0.86))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-
+            VStack(alignment: .leading, spacing: 4) {
                 Text(vehicle.fullName.isEmpty ? "Araç" : vehicle.fullName)
-                    .font(.system(size: 30, weight: .semibold))
+                    .font(.system(size: 26, weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(2)
-                    .minimumScaleFactor(0.74)
+                    .minimumScaleFactor(0.72)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if !vehicle.nickname.isEmpty && vehicle.nickname != vehicle.fullName {
+                    Text(vehicle.nickname)
+                        .font(AppTypography.secondary)
+                        .foregroundColor(.white.opacity(0.70))
+                        .lineLimit(1)
+                }
             }
-            .shadow(color: .black.opacity(0.48), radius: 8, x: 0, y: 2)
             .padding(.horizontal, AppSpacing.lg)
             .padding(.bottom, AppSpacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -313,7 +321,7 @@ struct VehicleDetailView: View {
     }
 
     private var detailHeroInfoArea: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.md) {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .center, spacing: AppSpacing.sm) {
                     detailPlateBadge
@@ -357,20 +365,22 @@ struct VehicleDetailView: View {
                 }
             }
         }
-        .padding(AppSpacing.lg)
+        .padding(.horizontal, AppSpacing.lg)
+        .padding(.top, AppSpacing.md)
+        .padding(.bottom, AppSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var detailPlateBadge: some View {
         Text(vehicle.plate.isEmpty ? "Plaka yok" : vehicle.plate)
             .font(.system(size: 15, weight: .semibold, design: .monospaced))
-            .tracking(0.7)
+            .tracking(0.6)
             .foregroundColor(AppColors.textPrimary)
             .lineLimit(1)
             .minimumScaleFactor(0.78)
             .padding(.horizontal, AppSpacing.sm)
-            .padding(.vertical, 7)
-            .background(Capsule().fill(AppColors.backgroundSecondary.opacity(0.86)))
+            .padding(.vertical, 6)
+            .background(Capsule().fill(AppColors.backgroundSecondary.opacity(0.72)))
     }
 
     private var detailYearTypeBlock: some View {
@@ -385,29 +395,31 @@ struct VehicleDetailView: View {
     }
 
     private var detailDossierBadge: some View {
-        Label("Dosya görünümü", systemImage: "doc.text.magnifyingglass")
+        let score = computeFileScore()
+        return Label("%\(score)", systemImage: "doc.text.magnifyingglass")
             .font(AppTypography.captionMedium)
             .foregroundColor(AppColors.accentPrimary)
-            .padding(.horizontal, AppSpacing.xs)
-            .padding(.vertical, 7)
+            .monospacedDigit()
+            .padding(.horizontal, AppSpacing.xs + 2)
+            .padding(.vertical, 6)
             .background(Capsule().fill(AppColors.accentPrimary.opacity(0.08)))
     }
 
     private func detailMetricBadge(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.caption2)
+                .font(.caption2.weight(.medium))
             Text(text)
                 .font(AppTypography.captionMedium)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
         .foregroundColor(AppColors.textSecondary)
-        .padding(.horizontal, AppSpacing.xs)
-        .padding(.vertical, 6)
+        .padding(.horizontal, AppSpacing.xs + 2)
+        .padding(.vertical, 5)
         .background(
             RoundedRectangle(cornerRadius: AppRadius.small, style: .continuous)
-                .fill(AppColors.backgroundSecondary.opacity(0.72))
+                .fill(AppColors.backgroundSecondary.opacity(0.68))
         )
     }
 
@@ -429,8 +441,9 @@ struct VehicleDetailView: View {
             if guideInsights.isEmpty {
                 HStack(alignment: .top, spacing: AppSpacing.sm) {
                     Image(systemName: "checkmark.seal")
-                        .foregroundColor(AppColors.success)
-                        .frame(width: 28)
+                        .font(.body)
+                        .foregroundColor(AppColors.success.opacity(0.7))
+                        .frame(width: 24)
                     VStack(alignment: .leading, spacing: AppSpacing.xxs) {
                         Text("Şimdilik öne çıkan öneri yok")
                             .font(AppTypography.bodyMedium)
@@ -446,9 +459,12 @@ struct VehicleDetailView: View {
                     RoundedRectangle(cornerRadius: AppRadius.card)
                         .fill(Color.appSurface)
                 )
-                .subtleShadow()
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                        .stroke(AppColors.border.opacity(0.42), lineWidth: 0.5)
+                )
             } else {
-                VStack(spacing: AppSpacing.sm) {
+                VStack(spacing: AppSpacing.xs) {
                     ForEach(guideInsights.prefix(3)) { insight in
                         VehicleDetailGuideCard(
                             insight: insight,
@@ -469,11 +485,11 @@ struct VehicleDetailView: View {
     private var arviaGuideDisclaimer: some View {
         HStack(alignment: .top, spacing: AppSpacing.xs) {
             Image(systemName: "info.circle.fill")
-                .font(.caption)
-                .foregroundColor(AppColors.warning)
+                .font(.caption2)
+                .foregroundColor(AppColors.textTertiary)
                 .accessibilityHidden(true)
-            Text("Arvia Rehber, araç kayıtlarına göre genel öneriler sunar. Teknik teşhis, ekspertiz veya servis görüşü yerine geçmez.")
-                .font(AppTypography.caption)
+            Text("Arvia Rehber, araç kayıtlarına göre genel öneriler sunar.")
+                .font(.system(size: 11))
                 .foregroundColor(AppColors.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -508,18 +524,12 @@ struct VehicleDetailView: View {
     // MARK: - Daily Quick Actions
     private var vehicleQuickActionsSection: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            HStack {
-                Text("Hızlı İşlemler")
-                    .font(AppTypography.cardTitle)
-                    .foregroundColor(AppColors.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                Text("Araç dosyası")
-                    .font(AppTypography.captionMedium)
-                    .foregroundColor(AppColors.textTertiary)
-            }
+            Text("Hızlı İşlemler")
+                .font(AppTypography.cardTitle)
+                .foregroundColor(AppColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 vehicleDetailActionButton(icon: "gauge.with.needle", label: "Km", color: AppColors.vehicle) {
                     showQuickKmUpdate = true
                 }
@@ -537,7 +547,8 @@ struct VehicleDetailView: View {
                 }
             }
         }
-        .padding(AppSpacing.sm)
+        .padding(.horizontal, AppSpacing.md)
+        .padding(.vertical, AppSpacing.sm)
         .background(
             RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .fill(Color.appSurface)
@@ -555,22 +566,22 @@ struct VehicleDetailView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(color)
+                    .frame(height: 24)
                 Text(label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(AppColors.textPrimary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.76)
             }
             .frame(maxWidth: .infinity)
-            .frame(minHeight: AppSpacing.minimumTapTarget)
-            .padding(.vertical, 4)
+            .frame(minHeight: 48)
+            .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: AppRadius.small, style: .continuous)
-                    .fill(AppColors.backgroundSecondary.opacity(0.48))
+                RoundedRectangle(cornerRadius: AppRadius.medium, style: .continuous)
+                    .fill(AppColors.backgroundSecondary.opacity(0.65))
             )
         }
         .buttonStyle(PlainCardButtonStyle())
@@ -611,24 +622,31 @@ struct VehicleDetailView: View {
             }
 
             if summary.isEmpty {
-                HStack(spacing: AppSpacing.sm) {
-                    Image(systemName: "turkishlirasign.circle")
-                        .foregroundColor(AppColors.textTertiary)
-                    Text("Bu ay henüz masraf kaydı yok.")
-                        .font(AppTypography.secondary)
-                        .foregroundColor(AppColors.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer()
+                VStack(spacing: AppSpacing.sm) {
+                    HStack(spacing: AppSpacing.sm) {
+                        Image(systemName: "turkishlirasign.circle")
+                            .font(.body)
+                            .foregroundColor(AppColors.textTertiary.opacity(0.6))
+                        Text("Bu ay henüz masraf kaydı yok.")
+                            .font(AppTypography.secondary)
+                            .foregroundColor(AppColors.textSecondary)
+                        Spacer()
+                    }
                 }
             } else {
                 HStack(alignment: .top, spacing: AppSpacing.md) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(VehicleInsightService.shared.formattedTRY(summary.total))
                             .font(AppTypography.amount)
                             .foregroundColor(AppColors.textPrimary)
-                        Text("\(summary.count) masraf kaydı")
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.textSecondary)
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(AppColors.accentPrimary.opacity(0.6))
+                                .frame(width: 5, height: 5)
+                            Text("\(summary.count) masraf kaydı")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
                     }
 
                     Spacer()
@@ -677,8 +695,9 @@ struct VehicleDetailView: View {
 
             if upcomingTasks.isEmpty {
                 HStack(spacing: AppSpacing.sm) {
-                    Image(systemName: "checkmark.circle")
-                        .foregroundColor(AppColors.success)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.body)
+                        .foregroundColor(AppColors.success.opacity(0.7))
                     Text("Yaklaşan bir iş görünmüyor.")
                         .font(AppTypography.secondary)
                         .foregroundColor(AppColors.textSecondary)
@@ -689,26 +708,42 @@ struct VehicleDetailView: View {
                 VStack(spacing: 0) {
                     ForEach(Array(upcomingTasks.prefix(4).enumerated()), id: \.element.id) { index, task in
                         HStack(spacing: AppSpacing.sm) {
-                            RoundedRectangle(cornerRadius: 2)
+                            RoundedRectangle(cornerRadius: 2, style: .continuous)
                                 .fill(priorityColor(task.priority))
-                                .frame(width: 4, height: 28)
+                                .frame(width: 4, height: 32)
+
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(task.title)
                                     .font(AppTypography.secondaryMedium)
                                     .foregroundColor(AppColors.textPrimary)
                                     .lineLimit(1)
-                                    .minimumScaleFactor(0.84)
-                                Text(task.relativeText)
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(priorityColor(task.priority))
+
+                                HStack(spacing: 4) {
+                                    if task.priority == .important {
+                                        Text("Gecikti")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(AppColors.critical)
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1)
+                                            .background(
+                                                Capsule()
+                                                    .fill(AppColors.critical.opacity(0.1))
+                                            )
+                                    } else {
+                                        Text(task.relativeText)
+                                            .font(AppTypography.caption)
+                                            .foregroundColor(priorityColor(task.priority))
+                                    }
+                                }
                             }
+
                             Spacer()
                         }
                         .frame(minHeight: AppSpacing.minimumTapTarget)
 
                         if index < min(upcomingTasks.count, 4) - 1 {
                             Divider()
-                                .padding(.leading, AppSpacing.md)
+                                .padding(.leading, 20)
                         }
                     }
                 }
@@ -721,7 +756,7 @@ struct VehicleDetailView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
-                .stroke(AppColors.warning.opacity(0.14), lineWidth: 1)
+                .stroke(AppColors.border.opacity(0.42), lineWidth: 0.5)
         )
     }
 
@@ -826,19 +861,20 @@ struct VehicleDetailView: View {
             HStack(alignment: .center, spacing: AppSpacing.md) {
                 ZStack {
                     Circle()
-                        .stroke(AppColors.border.opacity(0.5), lineWidth: 4)
-                        .frame(width: 60, height: 60)
+                        .stroke(AppColors.border.opacity(0.35), lineWidth: 3.5)
+                        .frame(width: 56, height: 56)
 
                     Circle()
                         .trim(from: 0, to: CGFloat(score) / 100.0)
-                        .stroke(scoreColor(score).opacity(0.72), style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                        .frame(width: 60, height: 60)
+                        .stroke(AppColors.accentPrimary.opacity(0.75), style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                        .frame(width: 56, height: 56)
                         .rotationEffect(.degrees(-90))
-                        .animation(.easeOut(duration: 0.75), value: score)
+                        .animation(.easeOut(duration: 0.8), value: score)
 
                     Text("%\(score)")
-                        .font(AppTypography.captionMedium)
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
+                        .monospacedDigit()
                 }
 
                 VStack(alignment: .leading, spacing: AppSpacing.xxs) {
@@ -867,21 +903,21 @@ struct VehicleDetailView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
-                .stroke(scoreColor(score).opacity(0.12), lineWidth: 1)
+                .stroke(AppColors.border.opacity(0.42), lineWidth: 0.5)
         )
     }
 
     private func completenessChip(icon: String, title: String, isComplete: Bool) -> some View {
         Label(title, systemImage: icon)
             .font(AppTypography.captionMedium)
-            .foregroundColor(isComplete ? AppColors.textSecondary : AppColors.textSecondary)
+            .foregroundColor(isComplete ? AppColors.textSecondary : AppColors.textTertiary)
             .lineLimit(1)
             .minimumScaleFactor(0.78)
-            .padding(.horizontal, AppSpacing.xs)
+            .padding(.horizontal, AppSpacing.xs + 2)
             .padding(.vertical, 5)
             .background(
                 Capsule()
-                    .fill((isComplete ? AppColors.success : AppColors.textTertiary).opacity(0.065))
+                    .fill((isComplete ? AppColors.accentPrimary : AppColors.textTertiary).opacity(0.07))
             )
     }
 
@@ -1645,7 +1681,7 @@ struct UpcomingTaskCard: View {
     }
 }
 
-// MARK: - Contextual Insight Compact Card
+// MARK: - Vehicle Detail Guide Card
 private struct VehicleDetailGuideCard: View {
     let insight: VehicleInsight
     let primaryAction: () -> Void
@@ -1653,65 +1689,57 @@ private struct VehicleDetailGuideCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: AppSpacing.sm) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(color.opacity(0.72))
-                .frame(width: 4)
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(color)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(color.opacity(0.1)))
 
-            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                HStack(alignment: .top, spacing: AppSpacing.sm) {
-                    Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(insight.title)
+                    .font(AppTypography.bodyMedium)
+                    .foregroundColor(AppColors.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(insight.body)
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: AppSpacing.xs) {
+                    Button(action: primaryAction) {
+                        HStack(spacing: 4) {
+                            Text(insight.action.title)
+                                .font(AppTypography.captionMedium)
+                            Image(systemName: "arrow.right")
+                                .font(.caption2.weight(.semibold))
+                        }
                         .foregroundColor(color)
-                        .frame(width: 26, height: 26)
-                        .background(Circle().fill(color.opacity(0.1)))
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(insight.title)
-                            .font(AppTypography.bodyMedium)
-                            .foregroundColor(AppColors.textPrimary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Text(insight.body)
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.textSecondary)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    .buttonStyle(.plain)
 
-                    Spacer(minLength: 0)
+                    Spacer()
 
                     Button(action: dismissAction) {
-                        Image(systemName: "xmark")
-                            .font(.caption.weight(.semibold))
+                        Text("Daha sonra")
+                            .font(AppTypography.caption)
                             .foregroundColor(AppColors.textTertiary)
-                            .frame(width: 28, height: 28)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Öneriyi gizle")
                 }
-
-                Button(action: primaryAction) {
-                    HStack(spacing: 5) {
-                        Text(insight.action.title)
-                            .font(AppTypography.captionMedium)
-                        Image(systemName: "arrow.right")
-                            .font(.caption2.weight(.semibold))
-                    }
-                    .foregroundColor(color)
-                    .frame(minHeight: AppSpacing.minimumTapTarget, alignment: .leading)
-                }
-                .buttonStyle(.plain)
+                .frame(minHeight: 32)
             }
-            .padding(.vertical, AppSpacing.sm)
-            .padding(.trailing, AppSpacing.sm)
         }
+        .padding(AppSpacing.md)
         .background(
             RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .fill(Color.appSurface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
-                .stroke(color.opacity(0.12), lineWidth: 1)
+                .stroke(AppColors.border.opacity(0.42), lineWidth: 0.5)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(insight.title). \(insight.body). \(insight.action.title)")
@@ -2047,7 +2075,7 @@ struct RecentRecordItem: Identifiable {
     .preferredColorScheme(.dark)
 }
 
-#Preview("Araç Detay — Dynamic Type") {
+#Preview("Araç Detay — Dinamik Tip") {
     let vehicle = MockDataProvider.previewVehicle()
     NavigationStack {
         VehicleDetailView(vehicle: vehicle)
