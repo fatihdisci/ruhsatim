@@ -6,17 +6,18 @@
 <title>Arvia — App Store Submit Rehberi</title>
 <style>
   :root {
-    --bg: #fafafa;
+    /* Light mode — Apple HIG grouped style */
+    --bg: #f2f2f7;
     --bg-elev: #ffffff;
-    --bg-soft: #f4f5f7;
-    --text: #1a1a1a;
-    --text-soft: #555;
-    --text-mute: #888;
-    --border: #e5e5e5;
-    --border-soft: #f0f0f0;
+    --bg-soft: #eceef1;
+    --text: #000000;
+    --text-soft: #3c3c43;
+    --text-mute: #8e8e93;
+    --border: #d1d1d6;
+    --border-soft: #e5e5ea;
     --accent: #0f766e;
-    --accent-soft: #f0fdfa;
-    --warn: #d97706;
+    --accent-soft: #e6f4f1;
+    --warn: #b45309;
     --warn-soft: #fef3c7;
     --danger: #dc2626;
     --danger-soft: #fee2e2;
@@ -24,17 +25,18 @@
     --success-soft: #dcfce7;
     --code-bg: #1e293b;
     --code-text: #e2e8f0;
-    --shadow: 0 1px 3px rgba(0,0,0,0.04);
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06);
   }
   [data-theme="dark"] {
-    --bg: #0a0a0a;
-    --bg-elev: #161616;
-    --bg-soft: #1f1f1f;
-    --text: #f5f5f5;
-    --text-soft: #b0b0b0;
-    --text-mute: #707070;
-    --border: #2a2a2a;
-    --border-soft: #222;
+    /* Dark mode — Apple HIG iOS 17 dark, true black + elevated surfaces */
+    --bg: #000000;
+    --bg-elev: #1c1c1e;
+    --bg-soft: #2c2c2e;
+    --text: #ffffff;
+    --text-soft: #ebebf5;
+    --text-mute: #8e8e93;
+    --border: rgba(255, 255, 255, 0.14);
+    --border-soft: rgba(255, 255, 255, 0.06);
     --accent: #2dd4bf;
     --accent-soft: #042f2e;
     --warn: #fbbf24;
@@ -43,8 +45,9 @@
     --danger-soft: #450a0a;
     --success: #4ade80;
     --success-soft: #052e16;
-    --code-bg: #0f172a;
-    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    --code-bg: #18181b;
+    --code-text: #e4e4e7;
+    --shadow: 0 1px 2px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.08);
   }
   * { box-sizing: border-box; }
   body {
