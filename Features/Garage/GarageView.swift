@@ -387,6 +387,24 @@ struct GarageView: View {
         .frame(height: 200)
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+        .overlay(alignment: .bottomTrailing) {
+            // Tıklanabilirlik affordance'i — kullanıcı hero'nun
+            // NavigationLink olduğunu görsün
+            HStack(spacing: 4) {
+                Text("Detay")
+                    .font(.system(size: 12, weight: .semibold))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(.black.opacity(0.55))
+            )
+            .padding(AppSpacing.md)
+        }
         .overlay(
             RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .stroke(AppColors.border.opacity(0.4), lineWidth: 0.5)
