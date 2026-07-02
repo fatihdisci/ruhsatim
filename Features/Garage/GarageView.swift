@@ -73,17 +73,6 @@ struct GarageView: View {
             .toolbarTitleDisplayMode(.inlineLarge)
             .background(Color.appBackground)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.body)
-                            .foregroundColor(AppColors.textSecondary)
-                    }
-                    .accessibilityLabel("Ayarlar")
-                }
-
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         handleAddVehicle()
@@ -95,17 +84,27 @@ struct GarageView: View {
                     .accessibilityLabel("Araç Ekle")
                 }
 
-                if !archivedVehicles.isEmpty {
-                    ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
                         Button {
-                            showArchivedVehicles.toggle()
+                            showSettings = true
                         } label: {
-                            Image(systemName: "archivebox")
-                                .font(.body)
-                                .foregroundColor(AppColors.textSecondary)
+                            Label("Ayarlar", systemImage: "gearshape")
                         }
-                        .accessibilityLabel("Arşivlenmiş Araçlar")
+
+                        if !archivedVehicles.isEmpty {
+                            Button {
+                                showArchivedVehicles.toggle()
+                            } label: {
+                                Label("Arşivlenmiş Araçlar", systemImage: "archivebox")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.body)
+                            .foregroundColor(AppColors.textSecondary)
                     }
+                    .accessibilityLabel("Diğer")
                 }
             }
             .sheet(isPresented: $showAddVehicle) {
