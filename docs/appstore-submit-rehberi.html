@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arvia — App Store Submit Rehberi</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --bg-elev: #ffffff;
+    --bg-soft: #f4f5f7;
+    --text: #1a1a1a;
+    --text-soft: #555;
+    --text-mute: #888;
+    --border: #e5e5e5;
+    --border-soft: #f0f0f0;
+    --accent: #0f766e;
+    --accent-soft: #f0fdfa;
+    --warn: #d97706;
+    --warn-soft: #fef3c7;
+    --danger: #dc2626;
+    --danger-soft: #fee2e2;
+    --success: #16a34a;
+    --success-soft: #dcfce7;
+    --code-bg: #1e293b;
+    --code-text: #e2e8f0;
+    --shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  [data-theme="dark"] {
+    --bg: #0a0a0a;
+    --bg-elev: #161616;
+    --bg-soft: #1f1f1f;
+    --text: #f5f5f5;
+    --text-soft: #b0b0b0;
+    --text-mute: #707070;
+    --border: #2a2a2a;
+    --border-soft: #222;
+    --accent: #2dd4bf;
+    --accent-soft: #042f2e;
+    --warn: #fbbf24;
+    --warn-soft: #422006;
+    --danger: #f87171;
+    --danger-soft: #450a0a;
+    --success: #4ade80;
+    --success-soft: #052e16;
+    --code-bg: #0f172a;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 0;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .toc { position: static !important; max-height: none !important; }
+  }
+  .toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 24px;
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+  }
+  .toc h1 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    color: var(--accent);
+  }
+  .toc .subtitle {
+    font-size: 12px;
+    color: var(--text-mute);
+    margin-bottom: 20px;
+  }
+  .toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .toc li {
+    margin: 0;
+  }
+  .toc a {
+    display: block;
+    padding: 8px 10px;
+    color: var(--text-soft);
+    text-decoration: none;
+    font-size: 13px;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  .toc a:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .toc .section-num {
+    display: inline-block;
+    width: 22px;
+    color: var(--text-mute);
+    font-weight: 600;
+  }
+  .theme-toggle {
+    margin-top: 20px;
+    padding: 8px 12px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-soft);
+    width: 100%;
+  }
+  .theme-toggle:hover { background: var(--accent-soft); }
+  .content {
+    padding: 40px 56px 80px;
+    max-width: 100%;
+  }
+  section {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 .num {
+    background: var(--accent);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 24px 0 12px 0;
+    color: var(--text);
+  }
+  h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 16px 0 8px 0;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .meta {
+    background: var(--bg-soft);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  .meta strong { color: var(--accent); }
+  .warn {
+    background: var(--warn-soft);
+    border-left: 3px solid var(--warn);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .warn strong { color: var(--warn); }
+  .danger {
+    background: var(--danger-soft);
+    border-left: 3px solid var(--danger);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .danger strong { color: var(--danger); }
+  .success {
+    background: var(--success-soft);
+    border-left: 3px solid var(--success);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  .tip {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  ul, ol { margin: 8px 0 16px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  p { margin: 8px 0 12px 0; }
+  code {
+    background: var(--bg-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", "Menlo", "Monaco", monospace;
+    font-size: 12.5px;
+    color: var(--accent);
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: "SF Mono", "Menlo", "Monaco", monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin: 12px 0;
+    position: relative;
+  }
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: -apple-system, sans-serif;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.2); }
+  .copy-btn.copied { background: var(--success); border-color: var(--success); }
+  .copy-btn-inline {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: 8px;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .copy-btn-inline:hover { opacity: 0.85; }
+  .copy-btn-inline.copied { background: var(--success); }
+  .field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--bg-soft);
+    border-radius: 6px;
+    margin: 6px 0;
+    font-size: 13px;
+  }
+  .field .label {
+    font-weight: 600;
+    color: var(--text);
+  }
+  .field .value {
+    color: var(--text-soft);
+    font-family: "SF Mono", "Menlo", monospace;
+    font-size: 12px;
+  }
+  .nav-btns {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 40px;
+    padding: 20px 0;
+    border-top: 1px solid var(--border);
+  }
+  .nav-btns a {
+    background: var(--bg-soft);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13px;
+    border: 1px solid var(--border);
+  }
+  .nav-btns a:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .progress {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 24px 0 32px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+  }
+  .progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin: 0 16px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--success);
+    width: 0%;
+    transition: width 0.3s;
+  }
+  .kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: "SF Mono", monospace;
+    font-size: 11px;
+    box-shadow: 0 1px 0 var(--border);
+  }
+  .checklist { list-style: none; padding: 0; margin: 16px 0; }
+  .checklist li {
+    padding: 8px 0 8px 28px;
+    position: relative;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .checklist li:before {
+    content: "☐";
+    position: absolute;
+    left: 0;
+    color: var(--text-mute);
+    font-size: 16px;
+  }
+  .checklist li.done { color: var(--success); }
+  .checklist li.done:before { content: "✓"; color: var(--success); }
+  @media print {
+    .toc, .nav-btns, .theme-toggle, .copy-btn, .copy-btn-inline { display: none; }
+    .layout { grid-template-columns: 1fr; }
+    body { background: white; color: black; }
+    section { box-shadow: none; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="toc">
+    <h1>Arvia</h1>
+    <div class="subtitle">App Store Submit Rehberi</div>
+    <ol>
+      <li><a href="#on-hazirlik"><span class="section-num">0</span> Ön hazırlık</a></li>
+      <li><a href="#app-olusturma"><span class="section-num">1</span> Yeni App oluşturma</a></li>
+      <li><a href="#app-information"><span class="section-num">2</span> App Information</a></li>
+      <li><a href="#pricing"><span class="section-num">3</span> Pricing &amp; Availability</a></li>
+      <li><a href="#app-privacy"><span class="section-num">4</span> App Privacy</a></li>
+      <li><a href="#subscriptions"><span class="section-num">5</span> Subscriptions (IAP)</a></li>
+      <li><a href="#version"><span class="section-num">6</span> Version 1.0</a></li>
+      <li><a href="#screenshots"><span class="section-num">7</span> Screenshots &amp; Preview</a></li>
+      <li><a href="#description"><span class="section-num">8</span> Description, Keywords</a></li>
+      <li><a href="#review-info"><span class="section-num">9</span> App Review Information</a></li>
+      <li><a href="#submit"><span class="section-num">10</span> Submit for Review</a></li>
+      <li><a href="#after"><span class="section-num">11</span> Sonrası: Review takibi</a></li>
+    </ol>
+    <button class="theme-toggle" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; this.textContent = document.documentElement.dataset.theme === 'dark' ? '☀️ Açık tema' : '🌙 Koyu tema';">🌙 Koyu tema</button>
+  </aside>
+
+  <main class="content">
+    <div class="progress">
+      <span>İlerleme</span>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <span id="progressText">0/11</span>
+    </div>
+
+    <section id="on-hazirlik">
+      <h2><span class="num">0</span> Ön hazırlık (önce yapılacaklar)</h2>
+      <p>App Store'a girmeden önce aşağıdaki 4 şey hazır olmalı. Yapılmadıysa buradan başla.</p>
+
+      <h3>0.1. Apple Developer hesabı</h3>
+      <div class="meta">
+        <strong>URL:</strong> <a href="https://developer.apple.com/account/" target="_blank">https://developer.apple.com/account/</a><br>
+        Yıllık $99 aktif olmalı. Yoksa App Store Connect'e erişemezsin.
+      </div>
+
+      <h3>0.2. Bundle ID oluştur</h3>
+      <ol>
+        <li>Apple Developer → Certificates, Identifiers &amp; Profiles → Identifiers</li>
+        <li><strong>+"</strong> butonu → <strong>App IDs</strong> seç → Continue</li>
+        <li><strong>App</strong> seç → Continue</li>
+        <li><strong>Description:</strong> <code>Arvia</code><li>
+        <li><strong>Bundle ID:</strong> <code>com.ruhsatim.app</code> (Explicit)</li>
+        <li>Capabilities'ta şunları işaretle:
+          <ul>
+            <li>✅ Sign In with Apple</li>
+            <li>✅ In-App Purchase (Subscriptions için)</li>
+            <li>✅ Push Notifications (opsiyonel — topluluk bildirimleri için)</li>
+          </ul>
+        </li>
+        <li>Continue → Register</li>
+      </ol>
+      <div class="warn"><strong>Bundle ID'yi Xcode'ta da güncelle:</strong> Xcode → Target → Signing &amp; Capabilities → Bundle Identifier → <code>com.ruhsatim.app</code> yaz (zaten doğruysa dokunma).</div>
+
+      <h3>0.3. App Store Connect hesabı</h3>
+      <ol>
+        <li><a href="https://appstoreconnect.apple.com" target="_blank">App Store Connect</a>'e git</li>
+        <li>Apple Developer hesabınla giriş yap</li>
+        <li>Ana sayfada <strong>"My Apps"</strong> tıkla</li>
+      </ol>
+
+      <h3>0.4. Agreements, Tax, and Banking</h3>
+      <div class="warn"><strong>Bu adım submit'ten önce TAMAMLANMALI.</strong> Yoksa review'a gönderemezsin.</div>
+      <ol>
+        <li>App Store Connect → <strong>Agreements, Tax, and Banking</strong></li>
+        <li><strong>Request Contracts</strong> butonuna tıkla → <strong>Paid Applications</strong> anlaşmasını kabul et (Free app olsa bile, IAP/Subscription için bu anlaşma gerekli)</li>
+        <li>Banka bilgilerini gir (Türkiye için TR IBAN)</li>
+        <li>Tax Forms → <strong>US Tax Forms</strong> → W-8BEN formunu doldur (ABD vergisi için, Türkiye'li geliştiriciysen %0 withholding için)</li>
+      </ol>
+
+      <h3>0.5. TestFlight build hazırla</h3>
+      <ol>
+        <li>Xcode → üst menüden <strong>Product → Archive</strong> (Generic iOS Device seçili olmalı, simulator değil)</li>
+        <li>Build bitince Organizer açılır → Distribution butonu olmadan önce: <strong>Validate App</strong> tıkla (hata varsa burada görürsün)</li>
+        <li>Validate geçtiyse → <strong>Distribute App</strong> → <strong>App Store Connect</strong> → <strong>Upload</strong></li>
+        <li>Signing: Automatically manage signing ✓</li>
+        <li>Upload symbols: Upload your app's symbols (recommended for crash reports)</li>
+        <li>Upload → bekle (5-15 dakika)</li>
+      </ol>
+      <div class="tip"><strong>Build yüklenince:</strong> App Store Connect → TestFlight → Build (1.0) görünür. Henüz internal testing grubu oluşturmadıysan oluştur.</div>
+    </section>
+
+    <section id="app-olusturma">
+      <h2><span class="num">1</span> Yeni App oluşturma</h2>
+      <ol>
+        <li>App Store Connect → <strong>My Apps</strong> → sol üstte <strong>"+"</strong> → <strong>New App</strong></li>
+        <li>Açılan formu doldur (kopyala butonlarıyla):</li>
+      </ol>
+      <div class="field"><span class="label">Platforms</span><span class="value">iOS</span></div>
+      <div class="field"><span class="label">App name</span><span class="value">Arvia <button class="copy-btn-inline" data-copy="Arvia">📋 Kopyala</button></span></div>
+      <div class="field"><span class="label">Primary language</span><span class="value">Turkish (tr)</span></div>
+      <div class="field"><span class="label">Bundle ID</span><span class="value">com.ruhsatim.app <button class="copy-btn-inline" data-copy="com.ruhsatim.app">📋 Kopyala</button></span></div>
+      <div class="field"><span class="label">SKU</span><span class="value">arvia-2026-07 <button class="copy-btn-inline" data-copy="arvia-2026-07">📋 Kopyala</button></span></div>
+      <div class="field"><span class="label">User access</span><span class="value">Public</span></div>
+      <li><strong>Create</strong> tıkla</li>
+    </section>
+
+    <section id="app-information">
+      <h2><span class="num">2</span> App Information</h2>
+      <p>Sol menüden <strong>App Information</strong> seç (henüz versiyon sayfasına girmediysen).</p>
+
+      <h3>2.1. Localizable Information (General)</h3>
+      <div class="field"><span class="label">App name</span><span class="value">Arvia</span></div>
+      <div class="field"><span class="label">Subtitle (max 30 char)</span><span class="value">Aracının dijital yaşam dosyası <button class="copy-btn-inline" data-copy="Aracının dijital yaşam dosyası">📋 Kopyala</button></span></div>
+      <div class="tip">Subtitle App Store listelemede ismin altında görünür. 30 karakter sınırı.</div>
+
+      <h3>2.2. Categorization</h3>
+      <div class="field"><span class="label">Primary Category</span><span class="value">Utilities</span></div>
+      <div class="field"><span class="label">Secondary Category</span><span class="value">Productivity</span></div>
+      <div class="warn"><strong>⚠️ Tıklama:</strong> "Games" veya eğlence kategorisi SEÇME. Aracı dosya takip aracı olarak konumlandırdık.</div>
+
+      <h3>2.3. Privacy &amp; Legal URLs</h3>
+      <div class="field"><span class="label">Privacy Policy URL</span><span class="value">https://fatihdisci.github.io/arvia/privacy.html <button class="copy-btn-inline" data-copy="https://fatihdisci.github.io/arvia/privacy.html">📋 Kopyala</button></span></div>
+      <div class="field"><span class="label">Terms of Service (EULA)</span><span class="value">Apple Standart EULA (Leave default)</span></div>
+      <div class="warn"><strong>⚠️ Tıklama:</strong> "Custom EULA" seçme. Standart Apple EULA'sı yasal olarak yeterli ve App Store tarafından kabul ediliyor.</div>
+
+      <h3>2.4. Additional Information</h3>
+      <div class="field"><span class="label">Support URL</span><span class="value">https://fatihdisci.github.io/arvia/support.html <button class="copy-btn-inline" data-copy="https://fatihdisci.github.io/arvia/support.html">📋 Kopyala</button></span></div>
+      <div class="field"><span class="label">Marketing URL</span><span class="value"><em>(boş bırak)</em></span></div>
+      <div class="field"><span class="label">Copyright</span><span class="value">© 2026 Fatih Disci <button class="copy-btn-inline" data-copy="© 2026 Fatih Disci">📋 Kopyala</button></span></div>
+      <div class="field"><span class="label">Routing App Coverage File</span><span class="value"><em>(boş bırak — Apple Maps entegrasyonu yok)</em></span></div>
+      <div class="field"><span class="label">Content Rights</span><span class="value">Contains third-party content (topluluk gönderileri — Apple Sign-In kullanıcıları)</span></div>
+      <li><strong>Save</strong> (sağ üstte)</li>
+    </section>
+
+    <section id="pricing">
+      <h2><span class="num">3</span> Pricing &amp; Availability</h2>
+      <p>Sol menüden <strong>Pricing and Availability</strong> seç.</p>
+
+      <h3>3.1. Price</h3>
+      <ol>
+        <li><strong>Base Territory:</strong> Turkey 🇹🇷 (veya "All Territories" hepsini seçili tut)</li>
+        <li><strong>Available Pricing:</strong> <strong>Free</strong> seç</li>
+      </ol>
+      <div class="warn"><strong>⚠️ Tıklama:</strong> Fiyat koyma, Free. Pro özellikler IAP olarak ayrıca tanımlanacak (bölüm 5).</div>
+
+      <h3>3.2. App Availability</h3>
+      <ol>
+        <li><strong>Distribution:</strong> Available in <strong>All Territories</strong> ✓</li>
+        <li>Veya manuel seç: Türkiye + AB ülkeleri (GDPR uyumluluğun var, sorun olmaz)</li>
+      </ol>
+      <h3>3.3. Pre-Order &amp; Release</h3>
+      <ol>
+        <li>Pre-order istemiyorsan <strong>Don't make available for pre-order</strong> ✓</li>
+        <li><strong>Save</strong></li>
+      </ol>
+    </section>
+
+    <section id="app-privacy">
+      <h2><span class="num">4</span> App Privacy</h2>
+      <div class="danger"><strong>⚠️ EN ÖNEMLİ ADIM.</strong> Yanlış cevap review'da red veya store'dan kaldırılma sebebi. <a href="docs/PRIVACY_LABELS_RECONCILIATION.md" target="_blank">PRIVACY_LABELS_RECONCILIATION.md</a>'i referans al.</div>
+
+      <p>Sol menüden <strong>App Privacy</strong> seç.</p>
+
+      <h3>4.1. Tracking</h3>
+      <div class="warn">
+        <strong>SORU:</strong> "Do you or your partners collect data from this app to track users?"<br>
+        <strong>YANIT:</strong> <strong>No, we do not collect data from this app to track users.</strong><br>
+        <em>Uygulama ATT (App Tracking Transparency) kullanmaz, IDFA toplamaz.</em>
+      </div>
+
+      <h3>4.2. Data Collection — 5 veri türü için "Yes"</h3>
+      <p>Sonraki soruda <strong>"Do you or your partners collect data from this app?"</strong> → <strong>Yes, we collect data from this app.</strong> seç.</p>
+
+      <p>Açılan listede şu 5 veri türünü <strong>Yes, collected</strong> yap, diğerlerini boş bırak:</p>
+
+      <h4>4.2.1. User Content (Topluluk gönderi/yorum)</h4>
+      <ul>
+        <li>Veri türü seç: <strong>User Content</strong></li>
+        <li>Linked to User Identity: <strong>Yes</strong></li>
+        <li>Tracking: <strong>No</strong></li>
+        <li>Used for Tracking: <strong>No</strong></li>
+        <li>Purpose: <strong>App Functionality</strong></li>
+        <li>Collection: <strong>Yes, collected from this app</strong></li>
+      </ul>
+      <div class="meta"><strong>Açıklama:</strong> Topluluk özelliği için kullanıcılar gönderi ve yorum oluşturur. Supabase veritabanında saklanır. Apple Sign-In ile bağlı kullanıcıya linked.</div>
+
+      <h4>4.2.2. Name (görünen ad)</h4>
+      <ul>
+        <li>Veri türü: <strong>Name</strong></li>
+        <li>Linked: <strong>Yes</strong></li>
+        <li>Purpose: <strong>App Functionality</strong></li>
+        <li>Collection: <strong>Yes, collected from this app</strong></li>
+      </ul>
+      <div class="meta"><strong>Açıklama:</strong> Topluluk profili için kullanıcının görünen adı (Apple Sign-In'den gelir veya kullanıcı belirler). Supabase'de saklanır.</div>
+
+      <h4>4.2.3. Email Address</h4>
+      <ul>
+        <li>Veri türü: <strong>Email Address</strong></li>
+        <li>Linked: <strong>Yes</strong></li>
+        <li>Purpose: <strong>App Functionality</strong></li>
+        <li>Collection: <strong>Yes, collected from this app</strong></li>
+      </ul>
+      <div class="meta"><strong>Açıklama:</strong> Apple Sign-In ile authentication için gerekli. Apple Private Relay kullanan kullanıcılar için gizli e-posta. Supabase Auth'ta saklanır.</div>
+
+      <h4>4.2.4. Photos or Videos</h4>
+      <ul>
+        <li>Veri türü: <strong>Photos or Videos</strong></li>
+        <li>Linked: <strong>No</strong></li>
+        <li>Purpose: <strong>App Functionality</strong></li>
+        <li>Collection: <strong>Yes, collected from this app</strong></li>
+      </ul>
+      <div class="meta"><strong>Açıklama:</strong> Belge/fotoğraf ekleme. Yerel cihazda saklanır, cihaz dışına gönderilmez (iCloud sync opsiyonel). Kullanıcı kimliği ile ilişkili değil.</div>
+
+      <h4>4.2.5. Purchase History</h4>
+      <ul>
+        <li>Veri türü: <strong>Purchase History</strong></li>
+        <li>Linked: <strong>No</strong></li>
+        <li>Purpose: <strong>App Functionality</strong></li>
+        <li>Collection: <strong>Yes, collected from this app</strong></li>
+      </ul>
+      <div class="meta"><strong>Açıklama:</strong> StoreKit 2 tarafından yönetilir. Uygulama kendi satın alma veritabanını tutmaz, sadece abonelik durumunu cihazda önbelleğe alır.</div>
+
+      <h3>4.3. Veri toplanmayan kategoriler — BOŞ BIRAK</h3>
+      <p>Aşağıdaki veri türleri için <strong>hiçbir şey işaretleme</strong>:</p>
+      <ul>
+        <li>❌ Precise Location</li>
+        <li>❌ Coarse Location</li>
+        <li>❌ Health &amp; Fitness</li>
+        <li>❌ Financial Info (ödeme Apple yönetir)</li>
+        <li>❌ Contact Info</li>
+        <li>❌ Contacts</li>
+        <li>❌ Browsing History</li>
+        <li>❌ Search History</li>
+        <li>❌ Identifiers (Device ID kullanılmaz)</li>
+        <li>❌ Sensitive Info</li>
+        <li>❌ Diagnostics</li>
+        <li>❌ Surroundings (audio/video)</li>
+      </ul>
+
+      <h3>4.4. Required Reason APIs</h3>
+      <p>Bu bölüm zaten PrivacyInfo.xcprivacy'den otomatik gelir. Doğrula:</p>
+      <ul>
+        <li>✅ <strong>FileTimestamp</strong> — Reason: <code>C617.1</code> (Display files to user)</li>
+        <li>✅ <strong>UserDefaults</strong> — Reason: <code>CA92.1</code> (Access info from same app, server)</li>
+        <li>✅ <strong>DiskSpace</strong> — Reason: <code>7D9E.1</code> (Storage of documents)</li>
+      </ul>
+      <div class="warn"><strong>⚠️ Tıklama:</strong> Bu 3 API dışında başka API işaretleme. Apple sadece gerçekten kullanılan API'lerin gerekçesini kabul eder.</div>
+
+      <h3>4.5. Privacy Nutrition Label önizleme</h3>
+      <p>Sayfanın sağ üstünde <strong>"Preview"</strong> tıkla. Kullanıcının göreceği "Data Used to Track You" / "Data Linked to You" / "Data Not Linked to You" etiketlerini kontrol et:</p>
+      <ul>
+        <li>Data Used to Track You: <em>boş (good!)</em></li>
+        <li>Data Linked to You: <strong>User Content, Name, Email Address</strong> (3 madde)</li>
+        <li>Data Not Linked to You: <strong>Photos or Videos, Purchase History</strong> (2 madde)</li>
+      </ul>
+      <p><strong>Publish</strong> tıkla (sağ üstte).</p>
+    </section>
+
+    <section id="subscriptions">
+      <h2><span class="num">5</span> Subscriptions (In-App Purchases)</h2>
+      <p>Sol menüden <strong>Subscriptions</strong> seç. Henüz grup yoksa:</p>
+
+      <h3>5.1. Subscription Group oluştur</h3>
+      <ol>
+        <li><strong>Create Subscription Group</strong></li>
+        <li><strong>Reference Name:</strong> <code>Arvia Pro</code> <button class="copy-btn-inline" data-copy="Arvia Pro">📋 Kopyala</button></li>
+        <li>Create</li>
+      </ol>
+
+      <h3>5.2. Subscription #1 — Aylık</h3>
+      <ol>
+        <li>Gruba tıkla → <strong>Create Subscription</strong></li>
+        <li><strong>Reference Name:</strong> <code>Arvia Pro Aylık</code> <button class="copy-btn-inline" data-copy="Arvia Pro Aylık">📋 Kopyala</button></li>
+        <li><strong>Product ID:</strong> <code>com.ruhsatim.pro.monthly</code> <button class="copy-btn-inline" data-copy="com.ruhsatim.pro.monthly">📋 Kopyala</button></li>
+        <li><strong>Subscription Duration:</strong> 1 Month</li>
+        <li><strong>Subscription Price:</strong> ₺79.99 (Türkiye — diğer ülkeler Apple otomatik hesaplar)</li>
+        <li><strong>Display Name:</strong> <code>Arvia Pro Aylık</code></li>
+        <li>Subscription Prices → Localized Prices:
+          <ul>
+            <li><strong>tr:</strong> Aylık abonelik. Tüm Pro özelliklerinden yararlan.</li>
+            <li><strong>en-US:</strong> Monthly subscription. Access all Pro features.</li>
+          </ul>
+        </li>
+        <li><strong>Save</strong></li>
+      </ol>
+
+      <h3>5.3. Subscription #2 — Yıllık</h3>
+      <p>Aynı gruba tıkla → <strong>Create Subscription</strong></p>
+      <ol>
+        <li><strong>Reference Name:</strong> <code>Arvia Pro Yıllık</code> <button class="copy-btn-inline" data-copy="Arvia Pro Yıllık">📋 Kopyala</button></li>
+        <li><strong>Product ID:</strong> <code>com.ruhsatim.pro.yearly</code> <button class="copy-btn-inline" data-copy="com.ruhsatim.pro.yearly">📋 Kopyala</button></li>
+        <li><strong>Duration:</strong> 1 Year</li>
+        <li><strong>Price:</strong> ₺599.99</li>
+        <li><strong>Display Name:</strong> Arvia Pro Yıllık</li>
+        <li>Localized Prices:
+          <ul>
+            <li><strong>tr:</strong> Yıllık abonelik. %33 indirimli. Tüm Pro özelliklerinden yararlan.</li>
+            <li><strong>en-US:</strong> Annual subscription. Save 33%. Access all Pro features.</li>
+          </ul>
+        </li>
+        <li><strong>Save</strong></li>
+      </ol>
+
+      <h3>5.4. Non-Consumable — Ömür Boyu (Lifetime)</h3>
+      <div class="warn"><strong>⚠️ Lifetime non-consumable.</strong> App Store'da Subscriptions altında değil, <strong>In-App Purchases</strong> altında tanımlanır. Sol menüde <strong>In-App Purchases</strong> seç.</div>
+      <ol>
+        <li><strong>Create In-App Purchase</strong></li>
+        <li><strong>Type:</strong> Non-Consumable</li>
+        <li><strong>Reference Name:</strong> <code>Arvia Pro Ömür Boyu</code> <button class="copy-btn-inline" data-copy="Arvia Pro Ömür Boyu">📋 Kopyala</button></li>
+        <li><strong>Product ID:</strong> <code>com.ruhsatim.pro.lifetime</code> <button class="copy-btn-inline" data-copy="com.ruhsatim.pro.lifetime">📋 Kopyala</button></li>
+        <li><strong>Price:</strong> ₺1.499,99 (veya başlangıçta ₺1.299,99 — Türkiye pazarına göre)</li>
+        <li><strong>Display Name:</strong> Arvia Pro Ömür Boyu</li>
+        <li>Localized Descriptions:
+          <ul>
+            <li><strong>tr:</strong> Tek seferlik ödeme. Ömür boyu Arvia Pro. Aile paylaşımına dahil değildir.</li>
+            <li><strong>en-US:</strong> One-time purchase. Lifetime Arvia Pro. Not included in Family Sharing.</li>
+          </ul>
+        </li>
+        <li><strong>Save</strong></li>
+      </ol>
+
+      <h3>5.5. Subscription Group Review Information</h3>
+      <p>Gruba tıkla → <strong>Review Information</strong> bölümü (sol alt):</p>
+      <ul>
+        <li><strong>Screenshot:</strong> Paywall ekranının screenshot'ını yükle (uygulamadan al)</li>
+        <li><strong>Notes:</strong>
+          <pre><code>Arvia tek araç için ücretsiz ve reklamsızdır. Pro abonelik sınırsız araç ekleme ve ileriye dönük Pro özelliklerini (akıllı içgörüler, ekspertiz doğrulama vb.) açar. Free kullanıcı tek aracını ekleyebilir, tüm hatırlatıcı/masraf/belge/satış dosyası özelliklerini kullanabilir. Pro yalnızca 2. araçtan itibaren gereklidir. Review için test edilebilir: yeni hesap → Garaj → "Araç Ekle" butonu (Free limit doluysa paywall otomatik açılır).</code><button class="copy-btn">📋</button></pre>
+        </li>
+      </ul>
+    </section>
+
+    <section id="version">
+      <h2><span class="num">6</span> Version 1.0</h2>
+      <p>Sol menüden <strong>1.0 — Arvia</strong> (veya oluşturduğun version sayfası) seç.</p>
+
+      <h3>6.1. Build seçimi</h3>
+      <ol>
+        <li><strong>Build</strong> bölümünde, TestFlight'a yüklediğin build'i seç (1.0 (1) gibi görünür)</li>
+        <li>Build seçildikten sonra <strong>"Export Compliance Information"</strong> çıkar — bölüm 10'da</li>
+      </ol>
+
+      <h3>6.2. Version Bilgileri</h3>
+      <div class="field"><span class="label">Version</span><span class="value">1.0</span></div>
+      <div class="field"><span class="label">Copyright</span><span class="value">© 2026 Fatih Disci</span></div>
+
+      <h3>6.3. App Store Icon</h3>
+      <ol>
+        <li>1024×1024 PNG, yuvarlak köşeli, alpha kanal YOK</li>
+        <li>Xcode'ta <code>App/Assets.xcassets/AppIcon.appiconset</code> altında hazır olmalı</li>
+        <li>App Store Connect'te <strong>"App Store Icon"</strong> alanına sürükle-bırak</li>
+      </ol>
+    </section>
+
+    <section id="screenshots">
+      <h2><span class="num">7</span> Screenshots &amp; Preview</h2>
+      <p>Sayfanın üstünde <strong>"Screenshots"</strong> bölümü. Cihaz boyutuna göre 3 set gerekir.</p>
+
+      <h3>7.1. Zorunlu setler</h3>
+      <ul>
+        <li><strong>6.7" Display (iPhone 15 Pro Max):</strong> 1290×2796 px, 3-10 screenshot</li>
+        <li><strong>6.5" Display (iPhone 11 Pro Max):</strong> 1242×2688 px, 3-10 screenshot</li>
+        <li><strong>5.5" Display (iPhone 8 Plus):</strong> 1242×2208 px, 3-10 screenshot</li>
+      </ul>
+      <div class="warn"><strong>⚠️ Tıklama:</strong> iPad seti isteğe bağlı — bırakabilirsin. iPhone 3 seti zorunlu.</div>
+
+      <h3>7.2. Hangi ekranları screenshot al</h3>
+      <p>En iyi sıralama (App Store standart):</p>
+      <ol>
+        <li><strong>Hero (Garaj):</strong> Araç kartı, Dosya Skoru, hızlı işlemler</li>
+        <li><strong>Yapılacaklar:</strong> Hatırlatıcı listesi (overdue varsa daha iyi)</li>
+        <li><strong>Araç Detay:</strong> Hero + milestone timeline</li>
+        <li><strong>Belge Ekleme:</strong> VisionKit scan veya document picker</li>
+        <li><strong>Geçmiş:</strong> Masraf/bakım kayıtları + filtreler</li>
+        <li><strong>Raporlar:</strong> Yıllık toplam masraf grafiği</li>
+        <li><strong>Satış Dosyası:</strong> Cover preview</li>
+      </ol>
+
+      <h3>7.3. Screenshot nasıl alınır (simulator)</h3>
+      <pre><code># Simulator açıkken terminalde:
+xcrun simctl io booted screenshot ~/Desktop/arvia-1.png
+
+# Belirli boyut (iPhone 15 Pro Max = 6.7"):
+# Xcode → Window → Devices and Simulators → ilgili simulator'ı seç
+# Cmd+S ile screenshot al (sadece simulator penceresini kaydeder)
+# Daha iyi: Cmd+Shift+5 → "Selected Portion" → uygulamayı seç</code><button class="copy-btn">📋</button></pre>
+
+      <div class="tip"><strong>İpucu:</strong> Status bar'ı (saat, sinyal) temizle. Xcode → Debug → Simulate Location → Custom Location seç. Veya <code>xcrun simctl status_bar booted override --time "9:41" --batteryState charged --batteryLevel 100</code>.</div>
+
+      <h3>7.4. App Preview (opsiyonel)</h3>
+      <p>Video önizleme (15-30 saniye). Zorunlu değil, ama conversion'ı %25 artırıyor. Yapma zamanın yoksa atlayabilirsin.</p>
+    </section>
+
+    <section id="description">
+      <h2><span class="num">8</span> Description, Keywords, vb.</h2>
+
+      <h3>8.1. Promotional Text (170 char max)</h3>
+      <p>Bu üstte görünür, "What's New" gibi. <strong>Submit etmeden önce değiştirilebilir.</strong></p>
+      <pre><code>Aracının tüm geçmişini tek dosyada topla. Muayene, sigorta, kasko, bakım hatırlatıcıları, masraf takibi, belgeler, ekspertiz raporları ve satış dosyası — hepsi cebinde, üstelik reklamsız.</code><button class="copy-btn">📋</button></pre>
+      <p class="meta">Karakter: 169 / 170</p>
+
+      <h3>8.2. Description (4000 char max)</h3>
+      <pre><code>Arvia, aracının dijital yaşam dosyasıdır.
+
+Muayene, sigorta, kasko, MTV, bakım ve masrafları tek bir yerde takip et. Önemli tarihleri kaçırma, belgeleri kaybetme, aracını satarken güven veren bir dosya hazırla.
+
+◆ ARAÇ DOSYAN
+Tüm araç bilgilerini, fotoğraflarını, belgelerini tek dosyada topla. Birden fazla araç ekle (Pro), garajını yönet.
+
+◆ HATIRLATICI VE PLANLAMA
+Muayene, sigorta, kasko, MTV, periyodik bakım, yağ değişimi, fren kontrolü gibi önemli tarihleri takip et. Tarih veya km bazlı hatırlatıcılar kur. Uygulama, hatırlatıcı tarihi yaklaşınca bildirim gönderir.
+
+◆ MASRAF VE BAKIM TAKİBİ
+Yakıt, bakım, parça, sigorta, MTV, otopark, HGS — tüm masrafları kaydet. Yıllık toplam, kategori dağılımı, km başı maliyet analizleri ile aracının gerçek sahiplik maliyetini gör.
+
+◆ BELGE KASASI
+Ruhsat, trafik sigortası, kasko poliçesi, muayene raporu, ekspertiz raporu, fatura, garanti belgesi — poliçe ve belgelerini fotoğrafını çekip sakla. Belgeleri aracına bağla, son kullanma tarihlerini takip et, satış dosyasına dahil et.
+
+◆ YAŞAM ÇİZİGİSİ
+Aracının kronolojik timeline'ı: satın alma, ilk kayıt, bakımlar, parça değişimleri, sigorta yenilemeleri, muayeneler, ekspertiz. Hangi parça ne zaman değişti, hangi kilometrede ne yapıldı — hepsi tek bakışta.
+
+◆ SATIŞ DOSYASI PDF
+Aracını satarken güven veren bir dosya oluştur: araç özeti, bakım geçmişi, belge listesi, ekspertiz raporları, hukuki uyarı. WhatsApp, e-posta veya AirDrop ile paylaş. Alıcı güveni, sen de hızlı satış.
+
+◆ TOPLULUK
+Araç sahipleriyle deneyim paylaş: hangi usta iyi, hangi ekspertiz güvenilir, hangi sigorta firması hızlı çözüyor. Apple Sign-In ile güvenli giriş, moderasyon kurallarıyla kaliteli içerik.
+
+◆ VERİN SENİN
+Tüm veriler cihazında (iCloud sync opsiyonel). Topluluk dışında hiçbir veri dışarı gönderilmez. İstediğin an hesabını ve tüm verilerini silebilirsin.
+
+◆ ÜCRETSİZ
+Arvia tek araç için tamamen ücretsiz ve reklamsızdır. Pro aboneliği yalnızca ikinci ve sonraki araçlar için gereklidir.
+
+---
+
+Arvia, aracına iyi bakman için tasarlandı. İndir, dene, aracının dijital dosyasını oluştur.</code><button class="copy-btn">📋</button></pre>
+      <p class="meta">Karakter: ~1850 / 4000 (boşluk geniş, genişletebilirsin)</p>
+
+      <h3>8.3. Keywords (100 char max, virgülle ayrılmış)</h3>
+      <pre><code>araç,oto,otomobil,motosiklet,muayene,sigorta,kasko,bakım,masraf,belge,dijital dosya,hatırlatıcı,mtv,yağ,fren,hgs</code><button class="copy-btn">📋</button></pre>
+      <p class="meta">Karakter: 99 / 100</p>
+      <div class="warn"><strong>⚠️ Tıklama:</strong> Apple, virgülden sonra boşluk olsun ister. <em>Apple</em>, <em>iPhone</em>, <em>uygulama</em>, <em>indir</em> gibi rekabetçi kelimeleri EKLEME — direkt reject sebebi. Sadece içerik-kelimesi.</div>
+
+      <h3>8.4. Support URL</h3>
+      <div class="field"><span class="label">Support URL</span><span class="value">https://fatihdisci.github.io/arvia/support.html <button class="copy-btn-inline" data-copy="https://fatihdisci.github.io/arvia/support.html">📋 Kopyala</button></span></div>
+
+      <h3>8.5. Marketing URL (opsiyonel)</h3>
+      <p>Boş bırak.</p>
+    </section>
+
+    <section id="review-info">
+      <h2><span class="num">9</span> App Review Information</h2>
+      <p>Version sayfasının altında. Reviewer'ın test ederken göreceği ek bilgiler.</p>
+
+      <h3>9.1. Sign-in</h3>
+      <div class="field"><span class="label">Sign-in required?</span><span class="value">Yes</span></div>
+      <div class="meta"><strong>Açıklama:</strong> Topluluk özelliği için Apple Sign-In gerekli. Araç ekleme, hatırlatıcı, masraf, belge gibi <strong>diğer tüm özellikler giriş olmadan kullanılabilir</strong>. Reviewer Apple Sign-In test edebilir veya geçici Supabase hesabı talep edebilir.</div>
+
+      <h3>9.2. Demo Account</h3>
+      <div class="field"><span class="label">Username</span><span class="value"><em>(boş bırak — Sign in with Apple kullanılıyor)</em></span></div>
+      <div class="field"><span class="label">Password</span><span class="value"><em>(boş bırak)</em></span></div>
+
+      <h3>9.3. Contact Information</h3>
+      <div class="field"><span class="label">First name</span><span class="value">Fatih</span></div>
+      <div class="field"><span class="label">Last name</span><span class="value">Disci</span></div>
+      <div class="field"><span class="label">Phone number</span><span class="value"><em>(boş bırak — gerek yok)</em></span></div>
+      <div class="field"><span class="label">Email</span><span class="value">behavest@proton.me <button class="copy-btn-inline" data-copy="behavest@proton.me">📋 Kopyala</button></span></div>
+
+      <h3>9.4. Notes (reviewer'a not)</h3>
+      <p>Çok önemli — review sürecini hızlandırır. Reviewer'ın test edeceği adımları yaz.</p>
+      <pre><code>Merhaba Apple Review ekibi,
+
+Arvia, araç sahiplerinin araçlarının dijital dosyasını tuttukları bir uygulamadır. Ana özellikleri (araç ekleme, hatırlatıcı, masraf, belge, satış dosyası PDF) giriş olmadan kullanılabilir.
+
+Test akışı önerisi:
+1. Onboarding'i geçin → "Araç Ekle" wizard açılır (3 adım).
+2. Plaka: TEST 01, marka: Test, model: Car, yıl: 2024, km: 10000 — kaydedin.
+3. Garaj ekranında aracınızı görürsünüz. Dosya Skoru ~%60 civarı olmalı (temel bilgiler + fotoğraf eksik).
+4. Araç detayına tıklayın → hero, hızlı işlemler, dosya tamlığı, yaşam çizgisi.
+5. Hızlı İşlemler'den "Hatırlatıcı Ekle" → bir hatırlatıcı oluşturun, listede görün.
+6. Topluluk sekmesi → Apple Sign-In ile giriş yapabilirsiniz. (Sign in with Apple herhangi bir Apple ID ile çalışır, demo hesap gerekmez.)
+7. "Satış Dosyası" → PDF oluşturabilirsiniz.
+
+App Store URL'si henüz PLACEHOLDER. Submit sonrası gerçek URL ile değiştirilecek (kodda TODO olarak işaretli).
+
+Bir sorun olursa behavest@proton.me adresinden bana ulaşabilirsiniz.
+
+Teşekkürler,
+Fatih Disci — Arvia</code><button class="copy-btn">📋</button></pre>
+
+      <h3>9.5. Attachments (opsiyonel)</h3>
+      <p>Ek dosya gerekmez.</p>
+    </section>
+
+    <section id="submit">
+      <h2><span class="num">10</span> Submit for Review</h2>
+      <p>Version sayfasında en üstte <strong>"Add for Review"</strong> tıkla. Apple birkaç son soru soracak.</p>
+
+      <h3>10.1. Export Compliance</h3>
+      <div class="warn">
+        <strong>SORU:</strong> "Does your app use encryption?"<br>
+        <strong>YANIT:</strong> <strong>Yes</strong> → Sonraki soruda <strong>"Does your app qualify for any of the exemptions provided in Category 5, Part 2, of the U.S. Export Administration Regulations?"</strong> → <strong>Yes</strong><br>
+        <em>Uygulama yalnızca standart HTTPS / TLS kullanıyor (Supabase, StoreKit 2). Bu, ABD Category 5 Part 2'de muaf.</em>
+      </div>
+
+      <h3>10.2. Content Rights</h3>
+      <div class="warn">
+        <strong>SORU:</strong> "Does your app contain, show, or access third-party content?"<br>
+        <strong>YANIT:</strong> <strong>Yes</strong> → <em>(Bu seçenek App Information'da zaten işaretliydi)</em><br>
+        <em>Topluluk özelliğinde kullanıcılar gönderi ve yorum oluşturur (üçüncü taraf içerik).</em>
+      </div>
+
+      <h3>10.3. Advertising Identifier (IDFA)</h3>
+      <div class="warn">
+        <strong>SORU:</strong> "Does this app use the Advertising Identifier (IDFA)?"<br>
+        <strong>YANIT:</strong> <strong>No, this app does not use the Advertising Identifier (IDFA).</strong><br>
+        <em>Uygulama reklam göstermez, IDFA toplamaz.</em>
+      </div>
+
+      <h3>10.4. Uploading Compliance</h3>
+      <div class="warn">
+        <strong>SORU 1:</strong> "Were you asked by a government entity to use encryption?"<br>
+        <strong>YANIT:</strong> <strong>No</strong><br><br>
+        <strong>SORU 2:</strong> "Does your app comply with U.S. export laws?"<br>
+        <strong>YANIT:</strong> <strong>Yes</strong>
+      </div>
+
+      <h3>10.5. Final Submit</h3>
+      <ol>
+        <li>Tüm sorular cevaplandıktan sonra <strong>"Submit for Review"</strong> butonu aktif olur</li>
+        <li>Tıkla</li>
+        <li>Apple review süreci başlar: genelde 24-48 saat, ilk submit 3-5 gün olabilir</li>
+      </ol>
+      <div class="success">🎉 <strong>Tebrikler!</strong> Submit edildi. Review sonucunu e-posta ile alacaksın.</div>
+    </section>
+
+    <section id="after">
+      <h2><span class="num">11</span> Sonrası: Review takibi</h2>
+
+      <h3>11.1. App Store Connect → Activity</h3>
+      <p>App Store Connect → Activity sekmesi. Her mesajlaşma, review durumu, red/reddetme burada görünür.</p>
+
+      <h3>11.2. Yayın öncesi son adım (App Store onayından sonra)</h3>
+      <ol>
+        <li>App Store onayı gelince → App Store Connect → versiyon → <strong>"Release"</strong> (manuel) veya "Automatically release after approval" (seçili ise otomatik)</li>
+        <li>PDF'teki App Store URL placeholder'ı güncelle (aşağıda)</li>
+      </ol>
+
+      <h3>11.3. App Store URL placeholder'ı güncelle</h3>
+      <div class="meta">
+        <strong>Dosya:</strong> <code>Services/PDFExportService.swift</code><br>
+        <strong>Sabit:</strong> <code>appStoreURL</code><br>
+        <strong>Değer:</strong> <code>"https://apps.apple.com/app/arvia/PLACEHOLDER"</code> → gerçek URL
+      </div>
+      <p>Gerçek URL'yi al: App Store Connect → App Information → "View on App Store" linki → URL'deki <code>id</code> numarası.</p>
+      <p>Örnek son hali:</p>
+      <pre><code>static let appStoreURL = "https://apps.apple.com/app/arvia/id1234567890"</code><button class="copy-btn">📋</button></pre>
+      <p>Xcode → Archive → TestFlight'a yeni build yükle. Yayın yaptıktan sonra PDF'lerdeki link doğru çalışır.</p>
+
+      <h3>11.4. Red gelirse</h3>
+      <p>Sık red sebepleri ve çözümler:</p>
+      <ul>
+        <li><strong>Guideline 5.1.1 (Account sign-in):</strong> Sign in with Apple zorunluysa diğer 3rd-party login de gerekebilir. Çözüm: "Sign in with Apple only" açıklaması yeterli (Topluluk opsiyonel özellik).</li>
+        <li><strong>Guideline 4.0 (Design):</strong> Standart dışı UI, placeholder text görünür, vs. Çözüm: ekran görüntülerinde placeholder olmadığından emin ol.</li>
+        <li><strong>Guideline 2.1 (App Completeness):</strong> Crash, boş ekran. Çözüm: TestFlight'ta en az 5 cihazda test et.</li>
+      </ul>
+      <p>Her red sonrası Apple detaylı açıklama yapar. Resolution Center'da cevap ver, düzeltmeyi yap, yeni build yükle.</p>
+    </section>
+
+    <div class="nav-btns">
+      <a href="#on-hazirlik">⬆ Başa dön</a>
+      <a href="#" onclick="window.print(); return false;">🖨 Yazdır</a>
+    </div>
+  </main>
+</div>
+
+<script>
+  // Kopyala butonları — data-copy attribute olan tüm elementler
+  document.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btn.textContent;
+        btn.textContent = '✓ Kopyalandı';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = orig;
+          btn.classList.remove('copied');
+        }, 1500);
+      } catch (e) {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = '✓ Kopyalandı';
+        setTimeout(() => { btn.textContent = '📋 Kopyala'; }, 1500);
+      }
+    });
+  });
+
+  // <pre> blokları içindeki .copy-btn
+  document.querySelectorAll('pre').forEach(pre => {
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = '📋 Kopyala';
+    btn.addEventListener('click', async () => {
+      const code = pre.querySelector('code');
+      const text = code ? code.textContent : pre.textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = '✓ Kopyalandı';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = '📋 Kopyala';
+          btn.classList.remove('copied');
+        }, 1500);
+      } catch (e) {
+        btn.textContent = '⚠ Hata';
+        setTimeout(() => { btn.textContent = '📋 Kopyala'; }, 1500);
+      }
+    });
+    pre.style.position = 'relative';
+    pre.appendChild(btn);
+  });
+
+  // Progress bar (sayfa kaydırdıkça)
+  const sections = document.querySelectorAll('section');
+  const fill = document.getElementById('progressFill');
+  const text = document.getElementById('progressText');
+  window.addEventListener('scroll', () => {
+    let visible = 0;
+    sections.forEach(sec => {
+      const r = sec.getBoundingClientRect();
+      if (r.top < window.innerHeight * 0.7 && r.bottom > 0) visible++;
+    });
+    const pct = Math.round((visible / sections.length) * 100);
+    fill.style.width = pct + '%';
+    text.textContent = visible + '/' + sections.length;
+  });
+</script>
+
+</body>
+</html>
