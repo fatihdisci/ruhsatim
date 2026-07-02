@@ -25,7 +25,7 @@ struct TodosView: View {
             }
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("Yapılacaklar")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbarTitleDisplayMode(.inlineLarge)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {

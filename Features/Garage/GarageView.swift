@@ -70,6 +70,7 @@ struct GarageView: View {
                 }
             }
             .navigationTitle("Garaj")
+            .toolbarTitleDisplayMode(.inlineLarge)
             .background(Color.appBackground)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
