@@ -22,6 +22,7 @@ Bu dosya, MVP öncesi ve v1.1'de uygulanacak **stratejik ürün kararlarını**,
 | 3.5 | Onboarding sonrası araç ekleme = 3 adım wizard | `VehicleFormView` → `VehicleFormWizardView` (3 adım: tanımla / durum / sıradaki işler) | 2.8 (BUCKET 2) | 3-4 gün |
 | 3.6 | Satış dosyası PDF'ine Arvia markası + App Store linki | `PDFExportService`'e brand header/footer | 1.11 (BUCKET 1) | 30 dakika |
 | 4.1 | Açık mod border'ları görünmez — **Subtle Fill + Border** ile çözüm | Asset catalog Border `#C7C7CC → #AEAEB2`, SurfacePrimary `#FFFFFF → #FAFAFA`, `border.opacity()` 0.4-0.5 → 0.7-0.85 | TestFlight öncesi (acele) | 1-2 saat |
+| 4.2 | Arvia Rehber içerik stratejisi — **CTA-zorunlu yapıyı 5 içerik tipine böl** | Gemini Deep Research raporuna dayanarak: `VehicleInsight.action` opsiyonel, yeni `VehicleInsightContentKind` enum (CTA/Bilgi/Uyarı/Hatırlatma/Soru), `InsightSnoozeStore` (UserDefaults tabanlı), yeni `VehicleInsightCard` component (dismiss butonu + soru için çift buton), 13 mevcut kart → yeni tip eşlemesi | v1.1 (MVP sonrası) | 3-4 gün |
 
 ---
 
@@ -293,6 +294,83 @@ Code agent şu kurallara uymalı:
 - Border hâlâ görünür ama fill ile uyumlu (göz yormuyor).
 - Koyu mod görsel olarak değişmedi (dark appearance asset'leri korundu).
 - TestFlight internal testing'de 5-10 kişi açık modda test edecek.
+
+---
+
+## 4.2 — Arvia Rehber: CTA-zorunlu yapıdan 5 içerik tipine dönüşüm
+
+**Karar (2 Temmuz 2026):** Mevcut 13 rehber kartının hepsi CTA-zorunlu (eylem yönlendirmesi içeriyor) → kullanıcı "robotik" ve "eyleme zorlayan bildirim paneli" algısı oluşuyor, kartları göz ardı ediyor. Gemini Deep Research raporuna (`docs/RESEARCH_ARVIA_GUIDE_SCENARIOS.md`, 670 satır, 39 kaynak) dayanarak 5 içerik tipi kategorisi benimsendi.
+
+**5 İçerik tipi:**
+
+| Tip | Priority | Tetikleyici | Etkileşim | Snooze |
+|---|---|---|---|---|
+| **A. CTA (Eylem)** | .important | Yasal gecikmeler (TÜVTÜRK, MTV), kritik eksik belgeler | Zorunlu birincil buton | Erteleme yok / 3 gün |
+| **B. Bilgi** | .info | Mevsim geçişleri, yakıt tipi önerileri, batarya sağlığı | "Anlaşıldı" dismiss | 90 gün (sezon) |
+| **C. Uyarı** | .warning | Ağır bakım eşikleri (DSG 60K, CVT 40K), yüksek km | Geçmiş ekranı + "Anlaşıldı" | 14-30 gün |
+| **D. Hatırlatma (Pasif)** | .info | MTV taksit dönemleri, sahiplik yıl dönümü | "Anlaşıldı" | Olay sonuna kadar |
+| **E. Soru (Yumuşak)** | .info | Uzun süredir veri girilmemiş, belirsiz km | "Ekle" + "Şimdi Değil" | 30 gün |
+
+**Mevcut 13 insight'ın yeni tip eşlemesi:**
+
+| Eski Tip | Yeni Tip | Yeni CTA / Dismiss | Snooze |
+|---|---|---|---|
+| overdueReminder | A. CTA | openTodos (zorunlu) | Yok |
+| upcomingReminder | C. Uyarı | addReminder veya Dismiss | 14 gün |
+| calendarPeriod | D. Hatırlatma | addMTVReminder veya Dismiss | Dönem sonu |
+| odometerUpdate | E. Soru | updateOdometer veya "Şimdi Değil" | 30 gün |
+| seasonalGuidance | B. Bilgi | Dismiss | 90 gün |
+| fuelTypeGuidance | B. Bilgi | Dismiss | 60 gün |
+| transmissionGuidance | C. Uyarı | addServiceRecord veya Dismiss | 30 gün |
+| odometerMilestone | B. Bilgi | Dismiss | Kalıcı |
+| monthlyExpensePrompt | E. Soru | addExpense veya "Şimdi Değil" | 30 gün |
+| maintenance | C. Uyarı | addServiceRecord veya Dismiss | 14 gün |
+| missingDocument | A. CTA | addDocument (zorunlu) | Yok |
+| quietGoodState | D. Hatırlatma | Dismiss | 7 gün |
+| saleFileReadiness | B. Bilgi | openSaleFile veya Dismiss | 30 gün |
+
+**Swift mimari değişiklikleri:**
+
+1. **`VehicleInsight.action`** → opsiyonel (`VehicleInsightAction?`). nil = CTA yok.
+2. **Yeni enum** `VehicleInsightContentKind`: `.callToAction / .info / .warning / .reminder / .softQuestion`
+3. **Yeni `VehicleInsightAction` case'leri**: `.dismissAndSnooze`, `.markAsRead`, `.acknowledge`, `.noAction`
+4. **`InsightSnoozeStore`** — UserDefaults tabanlı, `snooze(insightType:forVehicle:days:)` API'si, anahtar formatı `com.arvia.snooze.{vehicleId}.{insightType}`. Mevcut `InsightSnoozeStore` bu yapıya genişletilecek (şu an sadece `.calendarPeriod` için var).
+5. **Yeni component** `VehicleInsightCard` (veya `OwnershipInsightCard` varyantı) — dismiss butonu (`.callToAction` dışındaki tüm tipler için) + soru tipi için çift buton yapısı.
+
+**Ton ve üslup kuralları (5 dil kuralı):**
+
+1. **Edilgen ve yardımcı fiillerle yumuşatma:** "yap/et/gir/yükle" yok; "faydalı olabilir / işini kolaylaştırır / tercih edebilirsin" gibi.
+2. **Gerekçe gösterme:** Veri girişi isteniyorsa faydası açıklanmalı.
+3. **Teknik terim parantez içi açıklaması:** DPF (Dizel Partikül Filtresi), SoH (Batarya Sağlık Oranı), MTV (Motorlu Taşıtlar Vergisi).
+4. **Karakter limitleri:** Başlık max 4-5 kelime (≤30 karakter), gövde max 2 cümle (≤120 karakter).
+5. **"Sen" dili ama mesafeli:** "dostum" gibi aşırı samimi AI-slop yasak, "bilge yol arkadaşı" tonu.
+
+**Test stratejisi:**
+`DemoDataSeeder`'a 5 yeni senaryo eklenecek (Karar 3.4 genişletmesi):
+- Kritik Eylem (TÜVTÜRK gecikmesi, 715 gün)
+- Sezonluk Bilgi (BEV kış, %20-80 batarya)
+- Mekanik Uyarı (DSG 60K filtre değişimi)
+- Pasif Hatırlatma (MTV taksit dönemi)
+- Yumuşak Soru (Aylık masraf prompt)
+
+**Yol haritası:**
+
+- **v1.1 (MVP sonrası ilk güncelleme):** Model güncelle, `VehicleInsightCard` refactor, 13 kartı yeniden sınıflandır + metinlerini güncelle, `InsightSnoozeStore` UserDefaults'a taşı.
+- **v1.2+:** Konum tabanlı akıllı filtreleme (ev/iş yeri sessize alma), kullanıcı alışkanlık analizi (3 kez dismiss → snooze iki katına), OBD/üçüncü parti API entegrasyonu.
+
+**Açık sorular (v1.1 öncesi çözülmeli):**
+
+1. **SwiftData Migration:** MVP kullanıcılarının mevcut veritabanı, zorunlu `action` alanından opsiyonel `action` + yeni `contentKind` alanına nasıl migrate edilecek? Veri kaybı olmamalı.
+2. **Background task budget:** Kural motoru kullanıcı etkileşimi yokken ne sıklıkla çalışabilir? iOS background task sınırları.
+3. **Hava durumu API:** Bölgesel kış/DPF uyarıları için hava durumu verisi — gizlilik + maliyet dengesi.
+
+**Best practice referansları (rapordan):**
+Tesla App, FordPass (swipe-to-dismiss), Toyota MyT, BMW Connected (Proactive Care), Volvo Cars (İskandinav minimalizmi), TÜVTÜRK Portal (yasal mevzuat), Apple Health (kontrol listesi), Things 3 (esnek snooze: Bu Akşam / Yarın / Daha Sonra).
+
+**İlgili dosyalar:**
+- Gemini raporu: `docs/RESEARCH_ARVIA_GUIDE_SCENARIOS.md`
+- Gemini prompt: `docs/RESEARCH_PROMPT_ARVIA_GUIDE_SCENARIOS.md`
+- Uygulama promptu (v1.1): `docs/CODING_AGENT_PROMPT_V1.1_PRODUCT.md` (Karar 4.2 bölümü eklenecek veya yeni prompt)
 
 ---
 
