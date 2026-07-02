@@ -282,50 +282,55 @@ struct GarageView: View {
 
     // MARK: - Main Garage Content
     private var garageContent: some View {
-        ScrollView {
-            VStack(spacing: AppSpacing.lg) {
-                // 0. Çoklu araç picker — swipe carousel'in yerine
-                // Fotoğraf clipping sorununu ortadan kaldırır, tek ve tutarlı hero.
-                if activeVehicles.count > 1 {
-                    vehiclePicker
-                        .padding(.horizontal, AppSpacing.screenMarginH)
-                }
-
-                // 1. Hero Vehicle Card — tek, currentVehicle'a göre
-                if let vehicle = currentVehicle {
-                    NavigationLink {
-                        VehicleDetailView(vehicle: vehicle)
-                    } label: {
-                        heroCardContent(vehicle: vehicle)
-                    }
-                    .buttonStyle(PlainCardButtonStyle())
+        VStack(spacing: 0) {
+            // 0. Çoklu araç picker — ScrollView DIŞINDA, sabit
+            // NavigationLink + ScrollView'in gesture'ı chevron tıklamasını
+            // yiyordu. Sabit alanda bağımsız Button olarak çalışıyor.
+            if activeVehicles.count > 1 {
+                vehiclePicker
                     .padding(.horizontal, AppSpacing.screenMarginH)
-                }
-
-                // 2. Bugün Garajında
-                if let vehicle = currentVehicle {
-                    todayGarageSection(vehicle: vehicle)
-                }
-
-                // 3. Quick Actions — Hızlı İşlemler
-                if let vehicle = currentVehicle {
-                    quickActionsSection(vehicle: vehicle)
-                }
-
-                // 4. Lightweight garage summary
-                garageSummaryStrip
-
-                // 5. Archived vehicles
-                if !archivedVehicles.isEmpty {
-                    archivedSection
-                }
-
-                Spacer().frame(height: AppSpacing.floatingTabBarContentInset)
+                    .padding(.top, AppSpacing.md)
+                    .padding(.bottom, AppSpacing.sm)
             }
-            .padding(.vertical, AppSpacing.md)
-            .opacity(hasAppeared ? 1 : 0)
-            .offset(y: hasAppeared ? 0 : 12)
-            .animation(.easeOut(duration: 0.35), value: hasAppeared)
+
+            ScrollView {
+                VStack(spacing: AppSpacing.lg) {
+                    // 1. Hero Vehicle Card — tek, currentVehicle'a göre
+                    if let vehicle = currentVehicle {
+                        NavigationLink {
+                            VehicleDetailView(vehicle: vehicle)
+                        } label: {
+                            heroCardContent(vehicle: vehicle)
+                        }
+                        .buttonStyle(PlainCardButtonStyle())
+                        .padding(.horizontal, AppSpacing.screenMarginH)
+                    }
+
+                    // 2. Bugün Garajında
+                    if let vehicle = currentVehicle {
+                        todayGarageSection(vehicle: vehicle)
+                    }
+
+                    // 3. Quick Actions — Hızlı İşlemler
+                    if let vehicle = currentVehicle {
+                        quickActionsSection(vehicle: vehicle)
+                    }
+
+                    // 4. Lightweight garage summary
+                    garageSummaryStrip
+
+                    // 5. Archived vehicles
+                    if !archivedVehicles.isEmpty {
+                        archivedSection
+                    }
+
+                    Spacer().frame(height: AppSpacing.floatingTabBarContentInset)
+                }
+                .padding(.bottom, AppSpacing.md)
+                .opacity(hasAppeared ? 1 : 0)
+                .offset(y: hasAppeared ? 0 : 12)
+                .animation(.easeOut(duration: 0.35), value: hasAppeared)
+            }
         }
         .onAppear { hasAppeared = true }
         .onChange(of: activeVehicles.count) { _, newCount in
