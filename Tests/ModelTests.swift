@@ -771,6 +771,69 @@ final class VehicleInsightServiceTests: XCTestCase {
         XCTAssertTrue(julyInsights.contains { $0.type == .calendarPeriod && $0.action == .addMTVReminder })
     }
 
+    func testCalendarPeriodInsightHiddenWhenMTVHatirlaticiAlreadyActive() {
+        let calendar = Calendar(identifier: .gregorian)
+        let january = calendar.date(from: DateComponents(year: 2026, month: 1, day: 10, hour: 12))!
+        let july = calendar.date(from: DateComponents(year: 2026, month: 7, day: 10, hour: 12))!
+        let vehicle = Vehicle(currentOdometer: 42_000)
+
+        let activeMTVFirst = Reminder(
+            vehicleId: vehicle.id,
+            type: .mtvFirst,
+            title: "MTV 1. taksit",
+            dueDate: calendar.date(from: DateComponents(year: 2026, month: 1, day: 31))!,
+            priority: .info
+        )
+        let activeMTVSecond = Reminder(
+            vehicleId: vehicle.id,
+            type: .mtvSecond,
+            title: "MTV 2. taksit",
+            dueDate: calendar.date(from: DateComponents(year: 2026, month: 7, day: 31))!,
+            priority: .info
+        )
+
+        let januaryWithReminder = VehicleInsightService(calendar: calendar, now: january).insights(
+            for: vehicle,
+            reminders: [activeMTVFirst],
+            expenses: [expense(vehicleId: vehicle.id, amount: 100, date: january)],
+            serviceRecords: [serviceRecord(vehicleId: vehicle.id)],
+            documents: [document(vehicleId: vehicle.id)],
+            inspectionReports: [inspection(vehicleId: vehicle.id)],
+            maxVisible: 10
+        )
+        let julyWithReminder = VehicleInsightService(calendar: calendar, now: july).insights(
+            for: vehicle,
+            reminders: [activeMTVSecond],
+            expenses: [expense(vehicleId: vehicle.id, amount: 100, date: july)],
+            serviceRecords: [serviceRecord(vehicleId: vehicle.id)],
+            documents: [document(vehicleId: vehicle.id)],
+            inspectionReports: [inspection(vehicleId: vehicle.id)],
+            maxVisible: 10
+        )
+
+        XCTAssertFalse(januaryWithReminder.contains { $0.type == .calendarPeriod }, "MTV 1. taksit hatırlatıcısı varsa insight gösterilmemeli")
+        XCTAssertFalse(julyWithReminder.contains { $0.type == .calendarPeriod }, "MTV 2. taksit hatırlatıcısı varsa insight gösterilmemeli")
+    }
+
+    func testCalendarPeriodTitleDiffersByMonth() {
+        let calendar = Calendar(identifier: .gregorian)
+        let january = calendar.date(from: DateComponents(year: 2026, month: 1, day: 10, hour: 12))!
+        let july = calendar.date(from: DateComponents(year: 2026, month: 7, day: 10, hour: 12))!
+        let vehicle = Vehicle(currentOdometer: 42_000)
+
+        let januaryInsight = VehicleInsightService(calendar: calendar, now: january).insights(
+            for: vehicle, reminders: [], expenses: [], serviceRecords: [], documents: [], inspectionReports: [], maxVisible: 10
+        ).first { $0.type == .calendarPeriod }
+
+        let julyInsight = VehicleInsightService(calendar: calendar, now: july).insights(
+            for: vehicle, reminders: [], expenses: [], serviceRecords: [], documents: [], inspectionReports: [], maxVisible: 10
+        ).first { $0.type == .calendarPeriod }
+
+        XCTAssertEqual(januaryInsight?.title, "MTV 1. taksit dönemindesin")
+        XCTAssertEqual(julyInsight?.title, "MTV 2. taksit dönemindesin")
+        XCTAssertNotEqual(januaryInsight?.body, julyInsight?.body)
+    }
+
     func testMTVCopyDoesNotContainForbiddenWords() {
         let january = calendar.date(from: DateComponents(year: 2026, month: 1, day: 10, hour: 12))!
         let vehicle = Vehicle(currentOdometer: 42_000)
@@ -785,9 +848,10 @@ final class VehicleInsightServiceTests: XCTestCase {
         ).first { $0.type == .calendarPeriod }
 
         let copy = "\(insight?.title ?? "") \(insight?.body ?? "")".lowercased()
-        XCTAssertFalse(copy.contains("resmi"))
-        XCTAssertFalse(copy.contains("öde"))
-        XCTAssertFalse(copy.contains("garanti"))
+        XCTAssertFalse(copy.contains("resmi"), "MTV copy contains 'resmi': \(copy)")
+        XCTAssertFalse(copy.contains("garanti"), "MTV copy contains 'garanti': \(copy)")
+        XCTAssertFalse(copy.contains("yasal"), "MTV copy contains 'yasal': \(copy)")
+        XCTAssertFalse(copy.contains("kesin"), "MTV copy contains 'kesin': \(copy)")
     }
 
     func testPriorityOrderPutsOverdueBeforeSeasonalAndCalendarSuggestions() {

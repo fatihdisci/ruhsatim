@@ -144,7 +144,7 @@ struct VehicleInsightService {
         if let upcoming = upcomingReminderInsight(reminders, vehicleOdometer: vehicle.currentOdometer) {
             generated.append(upcoming)
         }
-        if let calendarInsight = calendarPeriodInsight() {
+        if let calendarInsight = calendarPeriodInsight(for: vehicle, reminders: reminders) {
             generated.append(calendarInsight)
         }
         if let odometerInsight = odometerUpdateInsight(for: vehicle, expenses: expenses, serviceRecords: serviceRecords, inspectionReports: inspectionReports) {
@@ -266,14 +266,26 @@ struct VehicleInsightService {
         return nil
     }
 
-    private func calendarPeriodInsight() -> VehicleInsight? {
+    private func calendarPeriodInsight(for vehicle: Vehicle, reminders: [Reminder]) -> VehicleInsight? {
         let month = calendar.component(.month, from: now)
         guard month == 1 || month == 7 else { return nil }
+        // Bu ay için zaten MTV hatırlatıcısı varsa gösterme (kullanıcı eklemiş).
+        let expectedType: ReminderType = (month == 1) ? .mtvFirst : .mtvSecond
+        let hasActiveMTVReminder = reminders.contains { reminder in
+            reminder.vehicleId == vehicle.id &&
+            reminder.type == expectedType &&
+            isActive(reminder)
+        }
+        if hasActiveMTVReminder { return nil }
+        let title = (month == 1) ? "MTV 1. taksit dönemindesin" : "MTV 2. taksit dönemindesin"
+        let body = (month == 1)
+            ? "Ocak ayında 1. taksit son ödeme günü 31 Ocak. Aracının MTV durumunu kontrol etmek ve hatırlatıcı eklemek isteyebilirsin."
+            : "Temmuz ayında 2. taksit son ödeme günü 31 Temmuz. Aracının MTV durumunu kontrol etmek ve hatırlatıcı eklemek isteyebilirsin."
         return VehicleInsight(
             type: .calendarPeriod,
             priority: .warning,
-            title: "MTV dönemindesin",
-            body: "MTV dönemindesin. Kendi durumunu kontrol etmek ve hatırlatıcı eklemek isteyebilirsin.",
+            title: title,
+            body: body,
             action: .addMTVReminder
         )
     }

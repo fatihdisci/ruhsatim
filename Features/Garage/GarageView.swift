@@ -125,7 +125,21 @@ struct GarageView: View {
             .sheet(isPresented: $showAddReminder) {
                 ReminderFormView(preselectedVehicleId: currentVehicle?.id)
             }
-            .sheet(isPresented: $showAddMTVReminder) {
+            .sheet(isPresented: $showAddMTVReminder, onDismiss: {
+                if let vehicle = currentVehicle {
+                    let month = Calendar.current.component(.month, from: Date())
+                    let expectedType: ReminderType = (month == 1) ? .mtvFirst : .mtvSecond
+                    let hasActiveMTV = activeReminders.contains { reminder in
+                        reminder.vehicleId == vehicle.id && reminder.type == expectedType
+                    }
+                    if hasActiveMTV {
+                        InsightSnoozeStore().clearReminderSnoozes(
+                            for: vehicle.id,
+                            types: [.calendarPeriod]
+                        )
+                    }
+                }
+            }) {
                 ReminderFormView(
                     preselectedVehicleId: currentVehicle?.id,
                     preselectedTemplate: Calendar.current.component(.month, from: Date()) == 7 ? .mtvSecond : .mtvFirst

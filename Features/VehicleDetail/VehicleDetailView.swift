@@ -289,11 +289,13 @@ struct VehicleDetailView: View {
         }
         .frame(height: 200)
         .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
-                .stroke(AppColors.border.opacity(0.4), lineWidth: 0.5)
-        )
+        // Sadece üst köşeler yuvarlatılmış, alt köşeler info alanıyla bitişik.
+        .clipShape(UnevenRoundedRectangle(cornerRadii: RectangleCornerRadii(
+            topLeading: AppRadius.heroCard,
+            bottomLeading: 0,
+            bottomTrailing: 0,
+            topTrailing: AppRadius.heroCard
+        ), style: .continuous))
     }
 
     private var detailHeroInfoArea: some View {
