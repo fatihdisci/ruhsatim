@@ -314,5 +314,191 @@ enum DemoDataSeeder {
         try? context.save()
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
     }
+
+    // MARK: - Insight Scenarios (Karar 3.4)
+    // Developer Settings'ten seçilebilen 5 test senaryosu.
+    // Senaryo seçilince mevcut tüm veri temizlenir, yeni state kurulur.
+
+    enum InsightScenario: String, CaseIterable, Identifiable {
+        case empty           // hiç araç yok
+        case singleReminder  // tek hatırlatıcı (sakin)
+        case overdueState    // gecikmiş hatırlatıcı
+        case busyState       // yoğun state (5 hatırlatıcı)
+        case quietGood       // sessiz iyi hal (tüm reminders completed)
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .empty: return "Boş (hiç araç yok)"
+            case .singleReminder: return "Tek hatırlatıcı (sakin)"
+            case .overdueState: return "Gecikmiş hatırlatıcı"
+            case .busyState: return "Yoğun state (5 hatırlatıcı)"
+            case .quietGood: return "Sessiz iyi hal"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .empty: return "tray"
+            case .singleReminder: return "bell"
+            case .overdueState: return "exclamationmark.triangle.fill"
+            case .busyState: return "bell.badge.fill"
+            case .quietGood: return "checkmark.seal.fill"
+            }
+        }
+
+        var description: String {
+            switch self {
+            case .empty: return "Empty state, 'ilk aracını ekle' CTA test edilir."
+            case .singleReminder: return "Sakin state, 'yaklaşan' tipi insight."
+            case .overdueState: return "Kırmızı primary insight üstte."
+            case .busyState: return "Çakışan insight'lar, öncelik sıralaması."
+            case .quietGood: return "Sessiz iyi hal, 'tamam' mesajı."
+            }
+        }
+    }
+
+    /// Seçilen senaryoyu kurar. Önce mevcut tüm veriyi temizler.
+    static func seedInsightScenario(_ scenario: InsightScenario, context: ModelContext) {
+        // 1. Mevcut veriyi temizle
+        deleteAll(context: context)
+
+        let calendar = Calendar.current
+        let now = Date()
+
+        switch scenario {
+        case .empty:
+            // Hiçbir şey ekleme — sadece temizle
+            break
+
+        case .singleReminder:
+            let vehicle = makeDemoCar(
+                plate: "34 TST 001",
+                brand: "Toyota",
+                model: "Corolla",
+                year: 2022,
+                odometer: 35000
+            )
+            context.insert(vehicle)
+            let reminder = Reminder(
+                vehicleId: vehicle.id,
+                type: .inspection,
+                title: "Periyodik Muayene",
+                dueDate: calendar.date(byAdding: .month, value: 3, to: now) ?? now,
+                priority: .warning
+            )
+            context.insert(reminder)
+
+        case .overdueState:
+            let vehicle = makeDemoCar(
+                plate: "34 TST 002",
+                brand: "Honda",
+                model: "Civic",
+                year: 2020,
+                odometer: 78000
+            )
+            context.insert(vehicle)
+            let reminder = Reminder(
+                vehicleId: vehicle.id,
+                type: .trafficInsurance,
+                title: "Trafik Sigortası Yenileme",
+                dueDate: calendar.date(byAdding: .day, value: -10, to: now) ?? now,
+                priority: .critical
+            )
+            context.insert(reminder)
+
+        case .busyState:
+            let vehicle = makeDemoCar(
+                plate: "34 TST 003",
+                brand: "Volkswagen",
+                model: "Passat",
+                year: 2019,
+                odometer: 110000
+            )
+            context.insert(vehicle)
+
+            let r1 = Reminder(
+                vehicleId: vehicle.id,
+                type: .inspection,
+                title: "Periyodik Muayene",
+                dueDate: calendar.date(byAdding: .day, value: -5, to: now) ?? now,
+                priority: .critical
+            )
+            let r2 = Reminder(
+                vehicleId: vehicle.id,
+                type: .oilChange,
+                title: "Yağ Değişimi",
+                dueDate: now,
+                priority: .warning
+            )
+            let r3 = Reminder(
+                vehicleId: vehicle.id,
+                type: .tire,
+                title: "Lastik Rotasyonu",
+                dueDate: calendar.date(byAdding: .month, value: 1, to: now) ?? now,
+                priority: .warning
+            )
+            let r4 = Reminder(
+                vehicleId: vehicle.id,
+                type: .brakes,
+                title: "Fren Balatası Kontrolü",
+                dueDate: calendar.date(byAdding: .month, value: 3, to: now) ?? now,
+                priority: .info
+            )
+            let r5 = Reminder(
+                vehicleId: vehicle.id,
+                type: .battery,
+                title: "Akü Değişimi",
+                dueDate: calendar.date(byAdding: .month, value: 6, to: now) ?? now,
+                priority: .info
+            )
+            [r1, r2, r3, r4, r5].forEach { context.insert($0) }
+
+        case .quietGood:
+            let vehicle = makeDemoCar(
+                plate: "34 TST 004",
+                brand: "Hyundai",
+                model: "i20",
+                year: 2024,
+                odometer: 12000
+            )
+            context.insert(vehicle)
+            let reminder = Reminder(
+                vehicleId: vehicle.id,
+                type: .inspection,
+                title: "Periyodik Muayene",
+                dueDate: calendar.date(byAdding: .month, value: 2, to: now) ?? now,
+                priority: .warning,
+                status: .completed,
+                completedAt: now
+            )
+            reminder.addedToHistoryAt = now
+            context.insert(reminder)
+        }
+
+        try? context.save()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    /// Senaryo seed'leme için paylaşılan araç factory'si.
+    private static func makeDemoCar(
+        plate: String,
+        brand: String,
+        model: String,
+        year: Int,
+        odometer: Int
+    ) -> Vehicle {
+        Vehicle(
+            plate: plate,
+            brand: brand,
+            model: model,
+            year: year,
+            vehicleType: .car,
+            fuelType: .gasoline,
+            transmissionType: .automatic,
+            currentOdometer: odometer
+        )
+    }
 }
 #endif

@@ -1336,30 +1336,65 @@ struct VehicleDetailView: View {
 
     // MARK: - Vehicle Life Timeline
     // Aracın kronolojik yaşam çizgisi — uygulamanın imza etkileşimi.
+    // Karar 3.3: Milestone event'ler ayrıcalıklı kart olarak gösterilir,
+    // regular event'ler mevcut sade liste halini korur.
     private var lifeTimelineSection: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
             SectionHeader(title: "Araç Yaşam Çizgisi")
 
-            VStack(spacing: AppSpacing.xs) {
+            VStack(spacing: AppSpacing.md) {
                 let allEvents = buildTimelineEvents()
-                let events = Array(allEvents.suffix(8))
-                ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                let milestoneEvents = allEvents.filter { $0.isMilestone }
+                let regularEvents = allEvents.filter { !$0.isMilestone }
+                let recentRegulars = Array(regularEvents.suffix(8))
+
+                // Milestone kartları — her biri için VehicleDetailMilestoneCard
+                ForEach(Array(milestoneEvents.enumerated()), id: \.element.id) { index, milestone in
+                    if let kind = milestone.milestoneKind,
+                       let date = milestone.date,
+                       let accent = milestone.accent {
+                        VehicleDetailMilestoneCard(
+                            kind: kind,
+                            date: date,
+                            title: milestone.title,
+                            subtitle: milestone.subtitle,
+                            icon: milestone.icon,
+                            accent: accent
+                        )
+                        if index < milestoneEvents.count - 1 {
+                            Divider()
+                                .padding(.vertical, AppSpacing.xxs)
+                                .opacity(0.5)
+                        }
+                    }
+                }
+
+                // Milestone'lar ile regular'lar arasında ayraç
+                if !milestoneEvents.isEmpty && !recentRegulars.isEmpty {
+                    Divider()
+                        .padding(.vertical, AppSpacing.xxs)
+                }
+
+                // Regular timeline items (sade liste)
+                ForEach(Array(recentRegulars.enumerated()), id: \.element.id) { index, event in
                     timelineItem(
                         event: event,
                         isFirst: index == 0,
-                        isLast: index == events.count - 1
+                        isLast: index == recentRegulars.count - 1
                     )
                 }
 
-                if allEvents.count > events.count {
-                    Text("En güncel \(events.count) kayıt gösteriliyor.")
+                // Eski kayıt uyarısı
+                if regularEvents.count > recentRegulars.count {
+                    Text("\(regularEvents.count - recentRegulars.count) eski kayıt gösterilmiyor.")
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textTertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, AppSpacing.xs)
                 }
 
-                if events.isEmpty {
+                // Empty state
+                if milestoneEvents.isEmpty && recentRegulars.isEmpty {
                     timelineItem(
                         event: TimelineEvent(
                             id: UUID(),
@@ -1367,7 +1402,9 @@ struct VehicleDetailView: View {
                             title: "Henüz kayıt yok",
                             date: nil,
                             isMilestone: false,
-                            subtitle: nil
+                            milestoneKind: nil,
+                            subtitle: nil,
+                            accent: nil
                         ),
                         isFirst: true,
                         isLast: true
@@ -1385,8 +1422,8 @@ struct VehicleDetailView: View {
             )
             .padding(.horizontal, AppSpacing.screenMarginH)
 
-            if serviceRecords.isEmpty {
-                Text("Bakım ve masraf kayıtlarını ekledikçe aracının yaşam çizgisi burada şekillenecek.")
+            if serviceRecords.isEmpty && inspectionReports.isEmpty {
+                Text("Bakım, masraf ve ekspertiz kayıtlarını ekledikçe aracının yaşam çizgisi burada şekillenecek.")
                     .font(AppTypography.caption)
                     .foregroundColor(AppColors.textTertiary)
                     .padding(.horizontal, AppSpacing.screenMarginH + AppSpacing.md)
@@ -1400,34 +1437,83 @@ struct VehicleDetailView: View {
         let title: String
         let date: Date?
         let isMilestone: Bool
+        let milestoneKind: VehicleDetailMilestoneCard.MilestoneKind?
         let subtitle: String?
+        let accent: Color?
     }
 
     private func buildTimelineEvents() -> [TimelineEvent] {
         var events: [TimelineEvent] = []
 
-        // Satın alma
+        // Satın alma — milestone
         if let purchaseDate = vehicle.purchaseDate {
             events.append(TimelineEvent(
                 id: UUID(),
-                icon: "cart",
+                icon: "cart.fill",
                 title: "Satın Alma",
                 date: purchaseDate,
                 isMilestone: true,
-                subtitle: vehicle.purchasePriceDisplay
+                milestoneKind: .purchase,
+                subtitle: vehicle.purchasePriceDisplay,
+                accent: VehicleDetailMilestoneCard.MilestoneKind.purchase.defaultAccent
             ))
         }
 
-        // Kilometre taşları — servis kayıtları (tarihe göre eskiden yeniye)
+        // Sahiplik yıl dönümü — 5+ yıl ise milestone
+        if let purchaseDate = vehicle.purchaseDate {
+            let yearsOwned = Calendar.current.dateComponents([.year], from: purchaseDate, to: Date()).year ?? 0
+            if yearsOwned >= 5 {
+                let milestoneDate = Calendar.current.date(byAdding: .year, value: 5, to: purchaseDate) ?? purchaseDate
+                events.append(TimelineEvent(
+                    id: UUID(),
+                    icon: "flag.checkered",
+                    title: "\(yearsOwned). Yıl — Sahiplik Dönüm Noktası",
+                    date: milestoneDate,
+                    isMilestone: true,
+                    milestoneKind: .ownershipYear,
+                    subtitle: "Bu araç \(yearsOwned) yıldır seninle.",
+                    accent: VehicleDetailMilestoneCard.MilestoneKind.ownershipYear.defaultAccent
+                ))
+            }
+        }
+
+        // İlk büyük bakım — parts_cost > 5000 veya service_type = major
+        // (ServiceType enum'unda .major yok; aşağıdaki set major işlem kapsamında değerlendirilir)
+        let majorServiceTypes: Set<ServiceType> = [.engine, .transmission, .body, .airConditioning]
         let sortedServices = serviceRecords.sorted { ($0.date) < ($1.date) }
+        for service in sortedServices {
+            let isMajor = (service.partsCost ?? 0) > 5000
+                || (service.totalCost ?? 0) > 7000
+                || majorServiceTypes.contains(service.serviceType)
+            if isMajor {
+                events.append(TimelineEvent(
+                    id: UUID(),
+                    icon: "wrench.and.screwdriver.fill",
+                    title: service.serviceType.displayName,
+                    date: service.date,
+                    isMilestone: true,
+                    milestoneKind: .majorService,
+                    subtitle: service.vendorName ?? service.totalCostDisplay,
+                    accent: VehicleDetailMilestoneCard.MilestoneKind.majorService.defaultAccent
+                ))
+            }
+        }
+
+        // Diğer bakım kayıtları (major olmayanlar) — regular timeline item
         for service in sortedServices.prefix(10) {
+            let isMajor = (service.partsCost ?? 0) > 5000
+                || (service.totalCost ?? 0) > 7000
+                || majorServiceTypes.contains(service.serviceType)
+            if isMajor { continue } // zaten milestone olarak eklendi
             events.append(TimelineEvent(
                 id: service.id,
                 icon: "wrench.and.screwdriver",
                 title: service.serviceType.displayName,
                 date: service.date,
                 isMilestone: false,
-                subtitle: service.vendorName ?? service.totalCostDisplay
+                milestoneKind: nil,
+                subtitle: service.vendorName ?? service.totalCostDisplay,
+                accent: nil
             ))
         }
 
@@ -1443,7 +1529,37 @@ struct VehicleDetailView: View {
                 title: expense.category.displayName,
                 date: expense.date,
                 isMilestone: false,
-                subtitle: expense.amountCompactDisplay
+                milestoneKind: nil,
+                subtitle: expense.amountCompactDisplay,
+                accent: nil
+            ))
+        }
+
+        // Ekspertiz raporları — her biri milestone
+        for inspection in inspectionReports {
+            events.append(TimelineEvent(
+                id: UUID(),
+                icon: "checkmark.seal.fill",
+                title: inspection.providerName,
+                date: inspection.reportDate,
+                isMilestone: true,
+                milestoneKind: .inspection,
+                subtitle: inspection.branchName,
+                accent: VehicleDetailMilestoneCard.MilestoneKind.inspection.defaultAccent
+            ))
+        }
+
+        // Satış dosyaları — ilki milestone
+        if let firstSale = saleFiles.sorted(by: { ($0.createdAt) < ($1.createdAt) }).first {
+            events.append(TimelineEvent(
+                id: UUID(),
+                icon: "doc.richtext.fill",
+                title: firstSale.title.isEmpty ? "Satış Dosyası" : firstSale.title,
+                date: firstSale.createdAt,
+                isMilestone: true,
+                milestoneKind: .saleFile,
+                subtitle: "Alıcı ile paylaşım için hazırlandı.",
+                accent: VehicleDetailMilestoneCard.MilestoneKind.saleFile.defaultAccent
             ))
         }
 
@@ -1792,6 +1908,122 @@ struct ContextualInsightCompactCard: View {
 struct RecentRecordItem: Identifiable {
     let id: UUID; let type: RecordType; let title: String; let subtitle: String; let date: Date; let icon: String
     enum RecordType { case expense; case service }
+}
+
+// MARK: - Vehicle Detail Milestone Card
+// Araç yaşam çizgisindeki kritik milestone'lar için ayrıcalıklı kart.
+// Karar 3.3 (Stratejik Kararlar Manifestosu). Mevcut timeline davranışı korunur;
+// milestone event'ler bu kartla render edilir, regular event'ler mevcut sade liste hali kalır.
+struct VehicleDetailMilestoneCard: View {
+    enum MilestoneKind: String {
+        case purchase       // araç satın alma
+        case majorService   // ilk büyük bakım (parts_cost > 5000 veya major serviceType)
+        case inspection     // ekspertiz raporu
+        case saleFile       // satış dosyası
+        case ownershipYear  // 5+ yıl sahiplik
+
+        /// Her milestone için uygun icon.
+        var defaultIcon: String {
+            switch self {
+            case .purchase: return "cart.fill"
+            case .majorService: return "wrench.and.screwdriver.fill"
+            case .inspection: return "checkmark.seal.fill"
+            case .saleFile: return "doc.richtext.fill"
+            case .ownershipYear: return "flag.checkered"
+            }
+        }
+
+        /// Her milestone türü için accent rengi — design token üzerinden.
+        var defaultAccent: Color {
+            switch self {
+            case .purchase: return AppColors.accentPrimary
+            case .majorService: return AppColors.vehicle
+            case .inspection: return AppColors.success
+            case .saleFile: return AppColors.accentPrimary
+            case .ownershipYear: return AppColors.warning
+            }
+        }
+
+        /// Helper — milestone türünü Türkçe etiket olarak döner.
+        var displayLabel: String {
+            switch self {
+            case .purchase: return "Satın Alma"
+            case .majorService: return "Büyük Bakım"
+            case .inspection: return "Ekspertiz"
+            case .saleFile: return "Satış Dosyası"
+            case .ownershipYear: return "Sahiplik Yıl Dönümü"
+            }
+        }
+    }
+
+    let kind: MilestoneKind
+    let date: Date
+    let title: String
+    let subtitle: String?
+    let icon: String
+    let accent: Color
+
+    private var formattedDate: String {
+        date.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: AppSpacing.md) {
+            // İkon container — çevresinde accent ring
+            ZStack {
+                Circle()
+                    .stroke(accent.opacity(0.25), lineWidth: 2)
+                    .frame(width: 48, height: 48)
+                Circle()
+                    .fill(accent.opacity(0.10))
+                    .frame(width: 40, height: 40)
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(accent)
+            }
+
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                HStack(spacing: AppSpacing.xs) {
+                    Text(kind.displayLabel)
+                        .font(AppTypography.captionMedium)
+                        .foregroundColor(accent)
+                    Spacer(minLength: 0)
+                    Text(formattedDate)
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textTertiary)
+                        .monospacedDigit()
+                }
+
+                Text(title)
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(AppColors.textPrimary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(AppSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                .fill(Color.appSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                .stroke(accent.opacity(0.3), lineWidth: 1.5)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(kind.displayLabel): \(title), \(formattedDate)")
+    }
 }
 
 // MARK: - Preview

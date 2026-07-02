@@ -311,6 +311,11 @@ struct GarageView: View {
                         todayGarageSection(vehicle: vehicle)
                     }
 
+                    // 2.5. Dosyani Tamamla Checklist — sadece eksik kriter varsa
+                    if let vehicle = currentVehicle {
+                        dosyaniTamamlaSection(vehicle: vehicle)
+                    }
+
                     // 3. Quick Actions — Hızlı İşlemler
                     if let vehicle = currentVehicle {
                         quickActionsSection(vehicle: vehicle)
@@ -746,6 +751,23 @@ struct GarageView: View {
                 }
                 .padding(.horizontal, AppSpacing.screenMarginH)
             }
+        }
+    }
+
+    // MARK: - Dosyani Tamamla Checklist
+    /// Garaj hero altında gösterilen interaktif rehber kartı.
+    /// 5 kriterden <5 tamamlandıysa gösterir, hepsi tamamlandıysa gizler.
+    /// Mevcut `DosyaniTamamlaChecklist` component'ini yeniden kullanır (Karar 3.1).
+    @ViewBuilder
+    private func dosyaniTamamlaSection(vehicle: Vehicle) -> some View {
+        if checklistDoneCount(vehicle) < 5 {
+            DosyaniTamamlaChecklist(
+                vehicle: vehicle,
+                hasInspectionReminder: hasReminderType(vehicle, .inspection),
+                hasInsuranceReminder: hasReminderType(vehicle, .trafficInsurance) || hasReminderType(vehicle, .casco),
+                hasAnyExpenseOrService: !recentExpenses(for: vehicle).isEmpty || !recentServices(for: vehicle).isEmpty,
+                hasAnyDocument: !recentDocuments(for: vehicle).isEmpty
+            )
         }
     }
 

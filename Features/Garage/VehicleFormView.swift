@@ -831,3 +831,546 @@ enum VehiclePhotoSelectionError: LocalizedError {
     VehicleFormView()
         .preferredColorScheme(.dark)
 }
+
+// MARK: - Vehicle Form Wizard View (Karar 3.5)
+// Onboarding sonrası ilk kez araç ekleme için 3 adımlı wizard.
+// Mevcut `VehicleFormView` (6-section tek form) korunur — Garaj menüsünden
+// ve test/dev ortamlarında eski form hâlâ kullanılır.
+// Yalnızca onboarding sonrası ilk aracı eklerken wizard açılır.
+
+struct VehicleFormWizardView: View {
+    enum WizardStep: Int, CaseIterable, Identifiable {
+        case identity = 0   // Tanımla
+        case condition = 1  // Durumu
+        case upcoming = 2   // Sıradaki işler
+
+        var id: Int { rawValue }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .identity: return "Tanımla"
+            case .condition: return "Durumu"
+            case .upcoming: return "Sıradaki İşler"
+            }
+        }
+
+        /// Küçük başlık — üst ilerleme çubuğunda kullanılır.
+        var shortTitle: String {
+            switch self {
+            case .identity: return "Tanımla"
+            case .condition: return "Durumu"
+            case .upcoming: return "Sıradaki İşler"
+            }
+        }
+    }
+
+    // MARK: Shared form state — VehicleFormView'daki state'lerin sade versiyonu
+    @State private var currentStep: WizardStep = .identity
+
+    // Step 1 — Identity
+    @State private var vehicleType: VehicleType = .car
+    @State private var plate = ""
+    @State private var brand = ""
+    @State private var model = ""
+    @State private var yearText = ""
+    @State private var showBrandPicker = false
+    @State private var showModelPicker = false
+    @State private var isCustomBrand = false
+    @State private var isCustomModel = false
+
+    // Step 2 — Condition
+    @State private var odometerText = ""
+    @State private var fuelType: FuelType = .gasoline
+    @State private var transmissionType: TransmissionType = .automatic
+    @State private var usageType: VehicleUsageType = .personal
+    @State private var nickname = ""
+
+    // Step 3 — Upcoming reminders (optional)
+    @State private var addInspectionReminder = false
+    @State private var inspectionDate = Calendar.current.date(byAdding: .year, value: 2, to: Date()) ?? Date()
+
+    @State private var addInsuranceReminder = false
+    @State private var insuranceDate = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
+
+    @State private var addMTVReminder = false
+    private var mtvDefaultDate: Date {
+        let calendar = Calendar.current
+        let now = Date()
+        let currentMonth = calendar.component(.month, from: now)
+        var components = calendar.dateComponents([.year], from: now)
+        components.month = currentMonth <= 6 ? 1 : 7
+        components.day = 15
+        return calendar.date(from: components) ?? now
+    }
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var paywallService: PaywallService
+
+    // MARK: Validation per step
+    private var canContinue: Bool {
+        switch currentStep {
+        case .identity:
+            return !plate.trimmingCharacters(in: .whitespaces).isEmpty
+        case .condition, .upcoming:
+            return true
+        }
+    }
+
+    private var year: Int? {
+        let trimmed = yearText.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? nil : Int(trimmed)
+    }
+
+    private var odometer: Int? {
+        let trimmed = odometerText.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? nil : Int(trimmed)
+    }
+
+    private var hasAnyChosenReminder: Bool {
+        addInspectionReminder || addInsuranceReminder || addMTVReminder
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                progressIndicator
+
+                ScrollView {
+                    Group {
+                        switch currentStep {
+                        case .identity: identityStep
+                        case .condition: conditionStep
+                        case .upcoming: upcomingStep
+                        }
+                    }
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.25), value: currentStep)
+                }
+
+                Divider()
+
+                navigationButtons
+            }
+            .background(Color.appBackground)
+            .navigationTitle(currentStep.shortTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("İptal") { dismiss() }
+                        .foregroundColor(AppColors.textSecondary)
+                }
+            }
+            .sheet(isPresented: $showBrandPicker) {
+                CarBrandPickerSheet(service: CarCatalogService.shared, selectedBrand: brand) { selectedBrand in
+                    handleBrandSelection(selectedBrand)
+                }
+            }
+            .sheet(isPresented: $showModelPicker) {
+                if let selectedCatalogBrand {
+                    CarModelPickerSheet(service: CarCatalogService.shared, brand: selectedCatalogBrand, selectedModel: model) { selectedModel in
+                        handleModelSelection(selectedModel)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Progress Indicator
+    private var progressIndicator: some View {
+        HStack(spacing: AppSpacing.xs) {
+            ForEach(WizardStep.allCases) { step in
+                Capsule()
+                    .fill(step.rawValue <= currentStep.rawValue
+                          ? AppColors.accentPrimary
+                          : AppColors.border)
+                    .frame(height: 4)
+            }
+        }
+        .padding(.horizontal, AppSpacing.screenMarginH)
+        .padding(.vertical, AppSpacing.sm)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Adım \(currentStep.rawValue + 1) / \(WizardStep.allCases.count): \(currentStep.shortTitle)")
+    }
+
+    // MARK: - Step 1 — Identity
+    private var identityStep: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                Text("Aracını tanıyalım")
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(AppColors.textPrimary)
+                Text("Plaka ve model bilgisi yeterli. Geri kalanını istersen sonra ekleyebilirsin.")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // Araç Türü
+            Picker(selection: $vehicleType) {
+                ForEach(VehicleType.allCases, id: \.self) { type in
+                    Text(type.displayName).tag(type)
+                }
+            } label: {
+                Label("Araç Türü", systemImage: "steeringwheel")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textPrimary)
+            }
+            .pickerStyle(.menu)
+
+            wizardField(icon: "number", placeholder: "Plaka (zorunlu)", text: $plate)
+                .textInputAutocapitalization(.characters)
+
+            VehicleCatalogSelectionField(
+                title: "Marka",
+                value: brand,
+                placeholder: "Marka seç",
+                systemImage: "car",
+                action: { showBrandPicker = true }
+            )
+
+            if isCustomBrand {
+                wizardField(icon: "pencil", placeholder: "Marka adı", text: $brand)
+            }
+
+            VehicleCatalogSelectionField(
+                title: "Model",
+                value: model,
+                placeholder: brand.isEmpty ? "Önce marka seç" : "Model seç",
+                systemImage: "tag",
+                isDisabled: brand.isEmpty && !isCustomBrand,
+                action: {
+                    if isCustomBrand {
+                        isCustomModel = true
+                    } else if selectedCatalogBrand != nil {
+                        showModelPicker = true
+                    }
+                }
+            )
+
+            if isCustomModel || isCustomBrand {
+                wizardField(icon: "pencil", placeholder: "Model adı", text: $model)
+            }
+
+            wizardField(icon: "calendar", placeholder: "Yıl (opsiyonel)", text: $yearText, keyboardType: .numberPad)
+        }
+        .padding(AppSpacing.md)
+    }
+
+    // MARK: - Step 2 — Condition
+    private var conditionStep: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                Text("Aracının durumu")
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(AppColors.textPrimary)
+                Text("Tüm alanlar opsiyonel. Daha sonra Araç Detay'dan da güncelleyebilirsin.")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            wizardField(icon: "gauge.with.needle", placeholder: "Güncel Km (opsiyonel)", text: $odometerText, keyboardType: .numberPad)
+
+            Picker(selection: $fuelType) {
+                ForEach(FuelType.allCases, id: \.self) { type in
+                    Text(type.displayName).tag(type)
+                }
+            } label: {
+                Label("Yakıt Tipi", systemImage: "fuelpump")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textPrimary)
+            }
+            .pickerStyle(.menu)
+
+            Picker(selection: $transmissionType) {
+                ForEach(TransmissionType.allCases, id: \.self) { type in
+                    Text(type.displayName).tag(type)
+                }
+            } label: {
+                Label("Vites", systemImage: "gearshape")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textPrimary)
+            }
+            .pickerStyle(.menu)
+
+            Picker(selection: $usageType) {
+                ForEach(VehicleUsageType.allCases, id: \.self) { type in
+                    Text(type.displayName).tag(type)
+                }
+            } label: {
+                Label("Kullanım", systemImage: "person")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textPrimary)
+            }
+            .pickerStyle(.menu)
+
+            wizardField(icon: "heart", placeholder: "Takma ad (opsiyonel)", text: $nickname)
+        }
+        .padding(AppSpacing.md)
+    }
+
+    // MARK: - Step 3 — Upcoming
+    private var upcomingStep: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                Text("Sıradaki işleri hazırlayalım mı?")
+                    .font(AppTypography.cardTitle)
+                    .foregroundColor(AppColors.textPrimary)
+                Text("İstersen muayene, sigorta ve MTV için otomatik hatırlatıcı oluşturabiliriz. Yoksa hepsini atlayabilirsin.")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            reminderToggle(
+                icon: "checkmark.seal",
+                title: "Muayene",
+                subtitle: "Varsayılan 2 yıl sonra",
+                isOn: $addInspectionReminder,
+                date: $inspectionDate
+            )
+
+            reminderToggle(
+                icon: "shield",
+                title: "Trafik Sigortası",
+                subtitle: "Varsayılan 1 yıl sonra",
+                isOn: $addInsuranceReminder,
+                date: $insuranceDate
+            )
+
+            reminderToggle(
+                icon: "doc.text",
+                title: "MTV",
+                subtitle: "Yılın 1. veya 2. yarısı (otomatik)",
+                isOn: $addMTVReminder,
+                date: .constant(mtvDefaultDate),
+                disabled: true
+            )
+        }
+        .padding(AppSpacing.md)
+    }
+
+    // MARK: - Navigation Buttons
+    private var navigationButtons: some View {
+        HStack(spacing: AppSpacing.sm) {
+            if currentStep != .identity {
+                Button("Geri") {
+                    withAnimation { currentStep = WizardStep(rawValue: currentStep.rawValue - 1) ?? .identity }
+                }
+                .buttonStyle(.secondary)
+            }
+
+            if currentStep != .upcoming {
+                Button("Devam") {
+                    withAnimation { currentStep = WizardStep(rawValue: currentStep.rawValue + 1) ?? .upcoming }
+                }
+                .buttonStyle(.primary)
+                .disabled(!canContinue)
+            } else {
+                Button(hasAnyChosenReminder ? "Aracı Ekle" : "Atla ve Ekle") {
+                    saveVehicleFromWizard()
+                }
+                .buttonStyle(.primary)
+            }
+        }
+        .padding(.horizontal, AppSpacing.screenMarginH)
+        .padding(.vertical, AppSpacing.md)
+    }
+
+    // MARK: - Wizard Helpers
+
+    private var selectedCatalogBrand: CarBrand? {
+        isCustomBrand ? nil : CarCatalogService.shared.brand(named: brand)
+    }
+
+    private func handleBrandSelection(_ selectedBrand: CarBrand?) {
+        if let selectedBrand {
+            var selection = VehicleCatalogSelection(brand: brand, model: model)
+            selection.selectBrand(selectedBrand.displayName)
+            brand = selection.brand
+            model = selection.model
+            isCustomBrand = false
+            isCustomModel = false
+        } else {
+            brand = ""
+            model = ""
+            isCustomBrand = true
+            isCustomModel = true
+        }
+    }
+
+    private func handleModelSelection(_ selectedModel: CarModel?) {
+        if let selectedModel {
+            model = selectedModel.displayName
+            isCustomModel = false
+        } else {
+            model = ""
+            isCustomModel = true
+        }
+    }
+
+    private func wizardField(
+        icon: String,
+        placeholder: String,
+        text: Binding<String>,
+        keyboardType: UIKeyboardType = .default
+    ) -> some View {
+        HStack(spacing: AppSpacing.sm) {
+            Image(systemName: icon)
+                .font(.body)
+                .foregroundColor(AppColors.textTertiary)
+                .frame(width: 24)
+            TextField(placeholder, text: text)
+                .font(AppTypography.body)
+                .foregroundColor(AppColors.textPrimary)
+                .keyboardType(keyboardType)
+        }
+        .padding(AppSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.medium)
+                .fill(AppColors.backgroundSecondary.opacity(0.5))
+        )
+    }
+
+    private func reminderToggle(
+        icon: String,
+        title: String,
+        subtitle: String,
+        isOn: Binding<Bool>,
+        date: Binding<Date>,
+        disabled: Bool = false
+    ) -> some View {
+        VStack(alignment: .leading, spacing: AppSpacing.xs) {
+            HStack(spacing: AppSpacing.sm) {
+                Image(systemName: icon)
+                    .foregroundColor(AppColors.accentPrimary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(AppColors.accentPrimary.opacity(0.1))
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(AppTypography.bodyMedium)
+                        .foregroundColor(AppColors.textPrimary)
+                    Text(subtitle)
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+                Spacer()
+                if disabled {
+                    Image(systemName: "lock.fill")
+                        .font(.caption)
+                        .foregroundColor(AppColors.textTertiary)
+                } else {
+                    Toggle("", isOn: isOn)
+                        .labelsHidden()
+                        .tint(AppColors.accentPrimary)
+                        .disabled(disabled)
+                }
+            }
+
+            if !disabled && isOn.wrappedValue {
+                DatePicker(
+                    "Tarih",
+                    selection: date,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.compact)
+                .font(AppTypography.secondary)
+            }
+        }
+        .padding(AppSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.medium)
+                .fill(AppColors.backgroundSecondary.opacity(0.5))
+        )
+    }
+
+    // MARK: - Save Action
+    private func saveVehicleFromWizard() {
+        let trimmedPlate = plate.trimmingCharacters(in: .whitespaces)
+        guard !trimmedPlate.isEmpty else { return }
+
+        // Paywall gate — araç limitini kontrol et
+        let activeVehicles = (try? modelContext.fetch(FetchDescriptor<Vehicle>()))?
+            .filter { $0.archivedAt == nil } ?? []
+        if !paywallService.canAddVehicle(currentCount: activeVehicles.count) {
+            // Paywall hâlâ Settings/Garaj üzerinden handle ediliyor — wizard'da dismiss et.
+            // Kullanıcı daha sonra formu manuel açabilir. Burada sessizce çıkıyoruz.
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            dismiss()
+            return
+        }
+
+        let vehicle = Vehicle(
+            nickname: nickname.trimmingCharacters(in: .whitespaces),
+            plate: trimmedPlate.uppercased(),
+            brand: brand.trimmingCharacters(in: .whitespaces),
+            model: model.trimmingCharacters(in: .whitespaces),
+            year: year,
+            vehicleType: vehicleType,
+            fuelType: fuelType,
+            transmissionType: transmissionType,
+            currentOdometer: odometer ?? 0,
+            usageType: usageType,
+            notes: ""
+        )
+        modelContext.insert(vehicle)
+
+        // Hatırlatıcılar (sadece seçili olanlar)
+        if addInspectionReminder {
+            let r = Reminder(
+                vehicleId: vehicle.id,
+                type: .inspection,
+                title: "Muayene",
+                dueDate: inspectionDate,
+                priority: .warning
+            )
+            modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
+        }
+        if addInsuranceReminder {
+            let r = Reminder(
+                vehicleId: vehicle.id,
+                type: .trafficInsurance,
+                title: "Trafik Sigortası",
+                dueDate: insuranceDate,
+                priority: .warning
+            )
+            modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
+        }
+        if addMTVReminder {
+            let r = Reminder(
+                vehicleId: vehicle.id,
+                type: .mtvFirst,
+                title: "MTV 1. Taksit",
+                dueDate: mtvDefaultDate,
+                priority: .info
+            )
+            modelContext.insert(r)
+            Task { await NotificationService.shared.scheduleReminder(r) }
+        }
+
+        try? modelContext.save()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Task { await NotificationRefreshService.refreshAll(context: modelContext) }
+        dismiss()
+    }
+}
+
+// MARK: - Wizard Preview
+#Preview("Araç Ekleme Sihirbazı") {
+    VehicleFormWizardView()
+        .modelContainer(MockDataProvider.emptyPreviewContainer)
+        .environmentObject(PaywallService.shared)
+}
+
+#Preview("Araç Ekleme Sihirbazı — Dark") {
+    VehicleFormWizardView()
+        .modelContainer(MockDataProvider.emptyPreviewContainer)
+        .environmentObject(PaywallService.shared)
+        .preferredColorScheme(.dark)
+}

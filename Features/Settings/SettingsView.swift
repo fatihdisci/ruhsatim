@@ -11,6 +11,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var paywallService: PaywallService
     @EnvironmentObject private var communityAuth: CommunityAuthService
+    @EnvironmentObject private var navigationRouter: AppNavigationRouter
 
     @State private var showPaywall = false
     @State private var showSignOutConfirmation = false
@@ -436,10 +437,42 @@ struct SettingsView: View {
                 Label("Dev: Free’ye Dön", systemImage: "arrow.uturn.backward")
                     .foregroundColor(AppColors.textSecondary)
             }
+
+            // MARK: Insight Senaryoları (Karar 3.4)
+            Menu {
+                ForEach(DemoDataSeeder.InsightScenario.allCases) { scenario in
+                    Button {
+                        DemoDataSeeder.seedInsightScenario(scenario, context: modelContext)
+                        // Garaj sekmesine yönlendir ve ayarları kapat
+                        navigationRouter.selectedTab = .garage
+                        dismiss()
+                    } label: {
+                        Label(scenario.displayName, systemImage: scenario.icon)
+                    }
+                }
+            } label: {
+                HStack {
+                    Label("Insight Senaryoları", systemImage: "lightbulb")
+                        .foregroundColor(AppColors.textPrimary)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption)
+                        .foregroundColor(AppColors.textTertiary)
+                }
+            }
+            .accessibilityLabel("Insight Senaryoları seç")
+
+            // MARK: Mevcut demo seed
+            Button {
+                DemoDataSeeder.seed(context: modelContext)
+            } label: {
+                Label("Demo Verisi Yükle", systemImage: "wand.and.stars")
+                    .foregroundColor(AppColors.accentPrimary)
+            }
         } header: {
             Text("Geliştirici")
         } footer: {
-            Text("Bu bölüm sadece DEBUG build’de görünür. Release/TestFlight build’de yer almaz.")
+            Text("Bu bölüm sadece DEBUG build’de görünür. Release/TestFlight build’de yer almaz. Senaryo seçilince tüm mevcut veri temizlenir.")
         }
         .listRowBackground(Color.appSurface)
     }
