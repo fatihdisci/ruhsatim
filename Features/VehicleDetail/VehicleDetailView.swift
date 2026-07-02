@@ -357,6 +357,7 @@ struct VehicleDetailView: View {
             RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .fill(Color.appSurface)
         )
+        .cardShadow()
         .overlay(
             RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
                 .stroke(AppColors.border.opacity(0.5), lineWidth: 0.5)
