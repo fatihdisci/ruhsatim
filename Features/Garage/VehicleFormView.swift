@@ -866,6 +866,8 @@ struct VehicleFormWizardView: View {
 
     // MARK: Shared form state — VehicleFormView'daki state'lerin sade versiyonu
     @State private var currentStep: WizardStep = .identity
+    @State private var errorMessage: String?
+    @State private var isSaving = false
 
     // Step 1 — Identity
     @State private var vehicleType: VehicleType = .car
@@ -905,16 +907,29 @@ struct VehicleFormWizardView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var paywallService: PaywallService
+    // Not: paywallService environment object'i kullanılmıyor.
+    // Bu wizard sadece ilk kez araç eklerken (vehicleCount=0) açılıyor;
+    // paywall kontrolü burada gereksiz ve @EnvironmentObject erişimi
+    // environment zincirinde sorun çıkarabiliyor.
 
-    // MARK: Validation per step
+// MARK: Validation per step
     private var canContinue: Bool {
         switch currentStep {
         case .identity:
-            return !plate.trimmingCharacters(in: .whitespaces).isEmpty
+            let trimmed = plate.trimmingCharacters(in: .whitespaces)
+            // Plaka zorunlu ve en az 6 karakter olmalı
+            return !trimmed.isEmpty && trimmed.count >= 6 && !isSaving
         case .condition, .upcoming:
-            return true
+            return !isSaving
         }
+    }
+
+    /// Plaka validasyonu — Türk plakaları en az 6 karakter (örn: 34 ABC 1234)
+    private var plateValidationError: String? {
+        let trimmed = plate.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty { return nil } // sessiz — boş durumda hata göstermeye gerek yok
+        if trimmed.count < 6 { return "Plaka en az 6 karakter olmalı." }
+        return nil
     }
 
     private var year: Int? {
@@ -1006,6 +1021,24 @@ struct VehicleFormWizardView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            // Gizlilik notu — plaka altında (Karar: plaka zorunlu alan olduğu için kısa güvence)
+            HStack(alignment: .top, spacing: AppSpacing.xs) {
+                Image(systemName: "lock.shield")
+                    .font(.caption2)
+                    .foregroundColor(AppColors.textTertiary)
+                    .padding(.top, 2)
+                Text("Plaka da dahil tüm verilerin cihazında saklanır. Arvia tarafından görülmez veya kullanılmaz.")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(AppSpacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: AppRadius.small)
+                    .fill(AppColors.backgroundSecondary.opacity(0.35))
+            )
+            .accessibilityElement(children: .combine)
+
             // Araç Türü
             Picker(selection: $vehicleType) {
                 ForEach(VehicleType.allCases, id: \.self) { type in
@@ -1020,6 +1053,20 @@ struct VehicleFormWizardView: View {
 
             wizardField(icon: "number", placeholder: "Plaka (zorunlu)", text: $plate)
                 .textInputAutocapitalization(.characters)
+
+            // Plaka validasyon mesajı (inline)
+            if let plateError = plateValidationError {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.caption2)
+                        .foregroundColor(AppColors.warning)
+                    Text(plateError)
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.warning)
+                    Spacer()
+                }
+                .transition(.opacity)
+            }
 
             VehicleCatalogSelectionField(
                 title: "Marka",
@@ -1055,6 +1102,7 @@ struct VehicleFormWizardView: View {
             wizardField(icon: "calendar", placeholder: "Yıl (opsiyonel)", text: $yearText, keyboardType: .numberPad)
         }
         .padding(AppSpacing.md)
+        .animation(.easeInOut(duration: 0.2), value: plateValidationError)
     }
 
     // MARK: - Step 2 — Condition
@@ -1153,25 +1201,49 @@ struct VehicleFormWizardView: View {
 
     // MARK: - Navigation Buttons
     private var navigationButtons: some View {
-        HStack(spacing: AppSpacing.sm) {
-            if currentStep != .identity {
-                Button("Geri") {
-                    withAnimation { currentStep = WizardStep(rawValue: currentStep.rawValue - 1) ?? .identity }
+        VStack(spacing: AppSpacing.xs) {
+            // Hata mesajı
+            if let errorMessage {
+                HStack(alignment: .top, spacing: AppSpacing.xs) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundColor(AppColors.critical)
+                    Text(errorMessage)
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.critical)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
                 }
-                .buttonStyle(.secondary)
+                .padding(.horizontal, AppSpacing.sm)
+                .padding(.vertical, AppSpacing.xs)
+                .background(
+                    RoundedRectangle(cornerRadius: AppRadius.small)
+                        .fill(AppColors.criticalBackground)
+                )
+                .padding(.horizontal, AppSpacing.screenMarginH)
             }
 
-            if currentStep != .upcoming {
-                Button("Devam") {
-                    withAnimation { currentStep = WizardStep(rawValue: currentStep.rawValue + 1) ?? .upcoming }
+            HStack(spacing: AppSpacing.sm) {
+                if currentStep != .identity {
+                    Button("Geri") {
+                        withAnimation { currentStep = WizardStep(rawValue: currentStep.rawValue - 1) ?? .identity }
+                    }
+                    .buttonStyle(.secondary)
+                    .disabled(isSaving)
                 }
-                .buttonStyle(.primary)
-                .disabled(!canContinue)
-            } else {
-                Button(hasAnyChosenReminder ? "Aracı Ekle" : "Atla ve Ekle") {
-                    saveVehicleFromWizard()
+
+                if currentStep != .upcoming {
+                    Button("Devam") {
+                        withAnimation { currentStep = WizardStep(rawValue: currentStep.rawValue + 1) ?? .upcoming }
+                    }
+                    .buttonStyle(.primary)
+                    .disabled(!canContinue)
+                } else {
+                    Button(hasAnyChosenReminder ? "Aracı Ekle" : "Atla ve Ekle") {
+                        saveVehicleFromWizard()
+                    }
+                    .buttonStyle(.primary)
+                    .disabled(isSaving)
                 }
-                .buttonStyle(.primary)
             }
         }
         .padding(.horizontal, AppSpacing.screenMarginH)
@@ -1290,19 +1362,27 @@ struct VehicleFormWizardView: View {
 
     // MARK: - Save Action
     private func saveVehicleFromWizard() {
-        let trimmedPlate = plate.trimmingCharacters(in: .whitespaces)
-        guard !trimmedPlate.isEmpty else { return }
+        errorMessage = nil
 
-        // Paywall gate — araç limitini kontrol et
-        let activeVehicles = (try? modelContext.fetch(FetchDescriptor<Vehicle>()))?
-            .filter { $0.archivedAt == nil } ?? []
-        if !paywallService.canAddVehicle(currentCount: activeVehicles.count) {
-            // Paywall hâlâ Settings/Garaj üzerinden handle ediliyor — wizard'da dismiss et.
-            // Kullanıcı daha sonra formu manuel açabilir. Burada sessizce çıkıyoruz.
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
-            dismiss()
+        let trimmedPlate = plate.trimmingCharacters(in: .whitespaces)
+        guard !trimmedPlate.isEmpty else {
+            errorMessage = "Plaka zorunludur."
             return
         }
+        guard trimmedPlate.count >= 6 else {
+            errorMessage = "Plaka en az 6 karakter olmalı."
+            return
+        }
+
+        // Re-entrance guard
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+
+        // Not: Paywall kontrolü YOK. Bu wizard sadece onboarding sonrası
+        // ilk kez araç eklerken açılır (vehicleCount=0 garantili), yani
+        // ücretsiz planda 1 araç limiti zaten geçerli. İkinci aracı
+        // kullanıcı zaten Garaj toolbar'dan eski VehicleFormView ile eklemeli.
 
         let vehicle = Vehicle(
             nickname: nickname.trimmingCharacters(in: .whitespaces),
@@ -1317,47 +1397,56 @@ struct VehicleFormWizardView: View {
             usageType: usageType,
             notes: ""
         )
-        modelContext.insert(vehicle)
 
-        // Hatırlatıcılar (sadece seçili olanlar)
-        if addInspectionReminder {
-            let r = Reminder(
-                vehicleId: vehicle.id,
-                type: .inspection,
-                title: "Muayene",
-                dueDate: inspectionDate,
-                priority: .warning
-            )
-            modelContext.insert(r)
-            Task { await NotificationService.shared.scheduleReminder(r) }
-        }
-        if addInsuranceReminder {
-            let r = Reminder(
-                vehicleId: vehicle.id,
-                type: .trafficInsurance,
-                title: "Trafik Sigortası",
-                dueDate: insuranceDate,
-                priority: .warning
-            )
-            modelContext.insert(r)
-            Task { await NotificationService.shared.scheduleReminder(r) }
-        }
-        if addMTVReminder {
-            let r = Reminder(
-                vehicleId: vehicle.id,
-                type: .mtvFirst,
-                title: "MTV 1. Taksit",
-                dueDate: mtvDefaultDate,
-                priority: .info
-            )
-            modelContext.insert(r)
-            Task { await NotificationService.shared.scheduleReminder(r) }
-        }
+        do {
+            modelContext.insert(vehicle)
 
-        try? modelContext.save()
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        Task { await NotificationRefreshService.refreshAll(context: modelContext) }
-        dismiss()
+            // Hatırlatıcılar (sadece seçili olanlar)
+            if addInspectionReminder {
+                let r = Reminder(
+                    vehicleId: vehicle.id,
+                    type: .inspection,
+                    title: "Muayene",
+                    dueDate: inspectionDate,
+                    priority: .warning
+                )
+                modelContext.insert(r)
+                Task { await NotificationService.shared.scheduleReminder(r) }
+            }
+            if addInsuranceReminder {
+                let r = Reminder(
+                    vehicleId: vehicle.id,
+                    type: .trafficInsurance,
+                    title: "Trafik Sigortası",
+                    dueDate: insuranceDate,
+                    priority: .warning
+                )
+                modelContext.insert(r)
+                Task { await NotificationService.shared.scheduleReminder(r) }
+            }
+            if addMTVReminder {
+                let r = Reminder(
+                    vehicleId: vehicle.id,
+                    type: .mtvFirst,
+                    title: "MTV 1. Taksit",
+                    dueDate: mtvDefaultDate,
+                    priority: .info
+                )
+                modelContext.insert(r)
+                Task { await NotificationService.shared.scheduleReminder(r) }
+            }
+
+            try modelContext.save()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            Task { await NotificationRefreshService.refreshAll(context: modelContext) }
+            dismiss()
+        } catch {
+            // Hata olursa eklenen vehicle'ı context'ten geri al
+            modelContext.delete(vehicle)
+            try? modelContext.save()
+            errorMessage = "Araç kaydedilemedi: \(error.localizedDescription)"
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
     }
 }
 
@@ -1365,12 +1454,10 @@ struct VehicleFormWizardView: View {
 #Preview("Araç Ekleme Sihirbazı") {
     VehicleFormWizardView()
         .modelContainer(MockDataProvider.emptyPreviewContainer)
-        .environmentObject(PaywallService.shared)
 }
 
 #Preview("Araç Ekleme Sihirbazı — Dark") {
     VehicleFormWizardView()
         .modelContainer(MockDataProvider.emptyPreviewContainer)
-        .environmentObject(PaywallService.shared)
         .preferredColorScheme(.dark)
 }
