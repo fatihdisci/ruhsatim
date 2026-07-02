@@ -198,19 +198,41 @@ struct GarageView: View {
     }
 
     // MARK: - Vehicle Picker
-    /// Çoklu araç varken aktif aracı değiştirmek için segmented picker.
-    /// ScrollView carousel'in yerini alır — fotoğraf clipping sorununu çözer,
-    /// tek ve tutarlı bir hero gösterir.
+    /// Çoklu araç varken aktif aracı değiştirmek için manuel segmented control.
+    /// SwiftUI Picker + Optional tag iOS'ta bazen binding güncellemediği için
+    /// Button tabanlı manuel versiyon kullanıyoruz — kesin çalışır.
     private var vehiclePicker: some View {
-        Picker("Araç", selection: $activeVehicleId) {
+        HStack(spacing: 6) {
             ForEach(activeVehicles) { vehicle in
-                Text(vehiclePickerLabel(for: vehicle))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .tag(vehicle.id as UUID?)
+                let isActive = activeVehicleId == vehicle.id
+                Button {
+                    activeVehicleId = vehicle.id
+                } label: {
+                    Text(vehiclePickerLabel(for: vehicle))
+                        .font(AppTypography.captionMedium)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, AppSpacing.sm)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(isActive
+                                      ? AppColors.accentPrimary.opacity(0.16)
+                                      : AppColors.backgroundSecondary.opacity(0.55))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(
+                                    isActive ? AppColors.accentPrimary.opacity(0.4) : Color.clear,
+                                    lineWidth: 1
+                                )
+                        )
+                        .foregroundColor(isActive ? AppColors.accentPrimary : AppColors.textSecondary)
+                }
+                .buttonStyle(.plain)
             }
         }
-        .pickerStyle(.segmented)
     }
 
     private func vehiclePickerLabel(for vehicle: Vehicle) -> String {
