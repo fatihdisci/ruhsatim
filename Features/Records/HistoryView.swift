@@ -79,6 +79,7 @@ struct HistoryView: View {
             }
             .background(Color.appBackground.ignoresSafeArea())
             .navigationTitle("Geçmiş")
+            .toolbarTitleDisplayMode(.inlineLarge)
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {

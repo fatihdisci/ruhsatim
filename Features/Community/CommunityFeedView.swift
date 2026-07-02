@@ -63,6 +63,7 @@ struct CommunityFeedView: View {
                 }
             }
             .navigationTitle("Topluluk")
+            .toolbarTitleDisplayMode(.inlineLarge)
             .toolbar {
                 if communityAuth.isAuthenticated && !communityAuth.needsProfileCreation {
                     ToolbarItem(placement: .primaryAction) {

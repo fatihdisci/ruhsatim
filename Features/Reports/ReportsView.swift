@@ -125,6 +125,7 @@ struct ReportsView: View {
                 }
             }
             .navigationTitle("Raporlar")
+            .toolbarTitleDisplayMode(.inlineLarge)
             .sheet(isPresented: $showAddExpense) { ExpenseFormView() }
             .sheet(item: $saleFileVehicle) { vehicle in
                 SaleFileView(vehicle: vehicle)
