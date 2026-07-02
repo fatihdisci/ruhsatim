@@ -260,115 +260,107 @@ struct VehicleDetailView: View {
     }
 
     private var detailHeroPhotoArea: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack {
             if let photoFileName = vehicle.photoFileName,
                let image = VehiclePhotoStorageService.shared.loadPhoto(fileName: photoFileName) {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
             } else {
                 ZStack {
                     LinearGradient(
                         colors: [
                             AppColors.vehicle.opacity(0.92),
-                            AppColors.vehicle.opacity(0.72),
-                            AppColors.accentPrimary.opacity(0.38)
+                            AppColors.vehicle.opacity(0.7),
+                            AppColors.accentPrimary.opacity(0.42)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
 
                     Image(systemName: vehicle.vehicleType.heroSymbol)
-                        .font(.system(size: 72, weight: .ultraLight))
-                        .foregroundColor(.white.opacity(0.28))
+                        .font(.system(size: 64, weight: .ultraLight))
+                        .foregroundColor(.white.opacity(0.32))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-
-            // Bottom-to-top gradient overlay for text legibility — no shadow needed
-            LinearGradient(
-                colors: [
-                    .black.opacity(0.02),
-                    .black.opacity(0.14),
-                    .black.opacity(0.78)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(vehicle.fullName.isEmpty ? "Araç" : vehicle.fullName)
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.72)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if !vehicle.nickname.isEmpty && vehicle.nickname != vehicle.fullName {
-                    Text(vehicle.nickname)
-                        .font(AppTypography.secondary)
-                        .foregroundColor(.white.opacity(0.70))
-                        .lineLimit(1)
-                }
-            }
-            .padding(.horizontal, AppSpacing.lg)
-            .padding(.bottom, AppSpacing.lg)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .containerRelativeFrame(.vertical) { height, _ in height * 0.22 }
+        .frame(height: 200)
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                .stroke(AppColors.border.opacity(0.4), lineWidth: 0.5)
+        )
     }
 
     private var detailHeroInfoArea: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: AppSpacing.sm) {
-                    detailPlateBadge
-                    detailYearTypeBlock
-                    Spacer(minLength: AppSpacing.sm)
-                    detailDossierBadge
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            // Satır 1: kimlik (fullName/nickname + plaka yan yana)
+            HStack(alignment: .top, spacing: AppSpacing.md) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(vehicle.nickname.isEmpty ? vehicle.fullName : vehicle.nickname)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(AppColors.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
+
+                    if !vehicle.nickname.isEmpty {
+                        Text(vehicle.fullName)
+                            .font(AppTypography.secondary)
+                            .foregroundColor(AppColors.textSecondary)
+                            .lineLimit(1)
+                    }
+
+                    HStack(spacing: 6) {
+                        Text(vehicle.yearDisplay)
+                            .font(AppTypography.captionMedium)
+                            .foregroundColor(AppColors.textSecondary)
+                        Text("•")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textTertiary)
+                        Text(vehicle.vehicleType.displayName)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    .padding(.top, 2)
                 }
 
-                VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                    HStack(spacing: AppSpacing.sm) {
-                        detailPlateBadge
-                        detailYearTypeBlock
-                    }
-                    detailDossierBadge
-                }
+                Spacer(minLength: AppSpacing.sm)
+
+                detailPlateBadge
             }
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: AppSpacing.xs) {
-                    detailMetricBadge(icon: "gauge.with.needle", text: vehicle.odometerDisplay)
-                    detailMetricBadge(icon: "fuelpump", text: vehicle.fuelType.displayName)
-                    if let transmission = vehicle.transmissionType {
-                        detailMetricBadge(
-                            icon: transmission == .automatic ? "a.circle" : "m.circle",
-                            text: transmission.displayName
-                        )
-                    }
-                }
+            Divider()
 
-                VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                    detailMetricBadge(icon: "gauge.with.needle", text: vehicle.odometerDisplay)
-                    HStack(spacing: AppSpacing.xs) {
-                        detailMetricBadge(icon: "fuelpump", text: vehicle.fuelType.displayName)
-                        if let transmission = vehicle.transmissionType {
-                            detailMetricBadge(
-                                icon: transmission == .automatic ? "a.circle" : "m.circle",
-                                text: transmission.displayName
-                            )
-                        }
-                    }
+            // Satır 2: metrics
+            HStack(spacing: AppSpacing.xs) {
+                detailMetricBadge(icon: "gauge.with.needle", text: vehicle.odometerDisplay)
+                detailMetricBadge(icon: "fuelpump", text: vehicle.fuelType.displayName)
+                if let transmission = vehicle.transmissionType {
+                    detailMetricBadge(
+                        icon: transmission == .automatic ? "a.circle" : "m.circle",
+                        text: transmission.displayName
+                    )
                 }
+                Spacer(minLength: 0)
             }
+
+            // Satır 3: dosya tamlığı
+            detailDossierBadge
         }
-        .padding(.horizontal, AppSpacing.lg)
-        .padding(.top, AppSpacing.md)
-        .padding(.bottom, AppSpacing.lg)
+        .padding(AppSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                .fill(Color.appSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.card, style: .continuous)
+                .stroke(AppColors.border.opacity(0.5), lineWidth: 0.5)
+        )
     }
 
     private var detailPlateBadge: some View {
@@ -400,10 +392,19 @@ struct VehicleDetailView: View {
     private var detailDossierBadge: some View {
         let score = computeFileScore()
         let barColor = score >= 80 ? AppColors.success : AppColors.accentPrimary
-        return HStack(spacing: AppSpacing.xs) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.caption2)
-                .foregroundColor(barColor)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: AppSpacing.xs) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.caption2)
+                    .foregroundColor(barColor)
+                Text("Dosya Skoru")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textTertiary)
+                Spacer(minLength: 0)
+                Text("%\(score)")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundColor(barColor)
+            }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 3)
@@ -416,21 +417,18 @@ struct VehicleDetailView: View {
                 }
             }
             .frame(height: 6)
-            Text("%\(score)")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundColor(barColor)
         }
         .padding(.horizontal, AppSpacing.sm)
-        .padding(.vertical, 7)
+        .padding(.vertical, 8)
         .background(
-            Capsule()
-                .fill(barColor.opacity(0.06))
+            RoundedRectangle(cornerRadius: AppRadius.small, style: .continuous)
+                .fill(barColor.opacity(0.05))
         )
         .overlay(
-            Capsule()
+            RoundedRectangle(cornerRadius: AppRadius.small, style: .continuous)
                 .stroke(barColor.opacity(0.10), lineWidth: 0.5)
         )
-        .accessibilityLabel("Dosya tamlığı yüzde \(score)")
+        .accessibilityLabel("Dosya skoru yüzde \(score)")
     }
 
     private func detailMetricBadge(icon: String, text: String) -> some View {
@@ -807,9 +805,9 @@ struct VehicleDetailView: View {
             actionTitle = "Km Güncelle"
             action = { showQuickKmUpdate = true }
         case .fileCompleteness:
-            title = "Dosya tamlığı"
-            message = "Aşağıdaki Dosya Tamlığı ve Belgeler alanlarından eksik bilgileri tamamlayabilirsin."
-            icon = "doc.text.magnifyingglass"
+            title = "Dosya Skoru"
+            message = "Aşağıdaki Dosya Skoru ve Belgeler alanlarından eksik bilgileri tamamlayabilirsin."
+            icon = "chart.bar.fill"
             actionTitle = nil
             action = nil
         case .saleFile:
@@ -881,7 +879,7 @@ struct VehicleDetailView: View {
         .padding(.horizontal, AppSpacing.screenMarginH)
     }
 
-    // MARK: - File Completeness Card
+    // MARK: - File Score Card
     private var fileCompletenessCard: some View {
         let score = computeFileScore()
 
@@ -906,7 +904,7 @@ struct VehicleDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    Text("Dosya Tamlığı")
+                    Text("Dosya Skoru")
                         .font(AppTypography.cardTitle)
                         .foregroundColor(AppColors.textPrimary)
                     Text(scoreDescription(score))
@@ -1530,18 +1528,33 @@ struct VehicleDetailView: View {
     // MARK: - Score Helpers
     private func computeFileScore() -> Int {
         var score = 0
-        if !vehicle.brand.isEmpty { score += 10 }
-        if !vehicle.model.isEmpty { score += 10 }
-        if vehicle.year != nil { score += 10 }
-        if vehicle.currentOdometer > 0 { score += 10 }
-        if vehicle.transmissionType != nil { score += 10 }
-        if vehicle.purchaseDate != nil { score += 10 }
-        if vehicle.purchasePrice != nil { score += 10 }
-        if vehicle.vehicleType == .motorcycle, vehicle.engineCC != nil { score += 10 }
-        if !reminders.isEmpty { score += 15 }
-        if !activeReminders.contains(where: { $0.isOverdue }) { score += 15 }
-        if !expenses.isEmpty { score += 5 }
-        if !serviceRecords.isEmpty { score += 5 }
+
+        // Temel bilgiler (40 puan) — plaka, kimlik, yakıt, satın alma
+        if !vehicle.plate.isEmpty { score += 5 }
+        if !vehicle.brand.isEmpty { score += 5 }
+        if !vehicle.model.isEmpty { score += 5 }
+        if vehicle.year != nil { score += 5 }
+        if vehicle.currentOdometer > 0 { score += 5 }
+        if vehicle.transmissionType != nil { score += 5 }
+        if vehicle.vehicleType == .motorcycle, vehicle.engineCC != nil { score += 5 }
+        if vehicle.purchaseDate != nil { score += 5 }
+
+        // Araç fotoğrafı (10 puan)
+        if vehicle.photoFileName != nil { score += 10 }
+
+        // Belgeler (25 puan) — Dosya Skoru'nun en kritik parçası.
+        // Belge olmadan Dosya Skoru %100 olamaz.
+        if !documents.isEmpty { score += 15 }
+        let uniqueDocTypes = Set(documents.map { $0.type })
+        if uniqueDocTypes.count >= 3 { score += 10 }
+
+        // Hatırlatıcı (10 puan)
+        if !activeReminders.isEmpty { score += 10 }
+
+        // Masraf + bakım (15 puan)
+        if !expenses.isEmpty { score += 8 }
+        if !serviceRecords.isEmpty { score += 7 }
+
         return min(score, 100)
     }
 
@@ -1552,9 +1565,9 @@ struct VehicleDetailView: View {
     }
 
     private func scoreDescription(_ score: Int) -> String {
-        if score >= 80 { return "Aracının dosyası oldukça tam." }
-        if score >= 50 { return "Birkaç bilgi daha ekleyebilirsin." }
-        return "Dosyanı tamamlamak için bilgi ekle."
+        if score >= 80 { return "Aracının geçmişi iyi dokümante edilmiş." }
+        if score >= 50 { return "Birkaç bilgi veya belge daha ekleyebilirsin." }
+        return "Skoru yükseltmek için bilgi, hatırlatıcı ve belge ekle."
     }
 
     // MARK: - Gate Helpers

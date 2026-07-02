@@ -37,7 +37,7 @@ struct DossierCompletenessCard: View {
             }
 
             VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                Text("Dosya Tamlığı")
+                Text("Dosya Skoru")
                     .font(AppTypography.bodyMedium)
                     .foregroundColor(AppColors.textPrimary)
 
@@ -47,7 +47,7 @@ struct DossierCompletenessCard: View {
                         .foregroundColor(AppColors.textSecondary)
                         .lineLimit(1)
                 } else {
-                    Text("Aracının dosyası oldukça tam.")
+                    Text("Aracının geçmişi iyi dokümante edilmiş.")
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.success)
                 }
@@ -71,7 +71,7 @@ struct DossierCompletenessCard: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Dosya tamlığı yüzde \(score). \(criteriaMissing.isEmpty ? "Tüm kriterler karşılandı." : "Eksikler: \(criteriaMissing.joined(separator: ", "))")")
+        .accessibilityLabel("Dosya skoru yüzde \(score). \(criteriaMissing.isEmpty ? "Tüm kriterler karşılandı." : "Eksikler: \(criteriaMissing.joined(separator: ", "))")")
     }
 
     private var scoreColor: Color {
